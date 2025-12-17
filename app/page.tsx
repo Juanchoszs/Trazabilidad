@@ -14,7 +14,14 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
   const showNovedades = params.novedades === "true"
 
   // Construct query fragments
-  const companyCondition = filter ? sql`transportadora = ${filter}` : sql`TRUE`
+  let companyCondition = sql`TRUE`
+  
+  if (filter === "Natura") {
+    companyCondition = sql`transportadora = 'REMESAS Y MENSAJES'`
+  } else if (filter) {
+    companyCondition = sql`transportadora = ${filter}`
+  }
+
   const novedadesCondition = showNovedades ? sql`novedad IS NOT NULL AND TRIM(novedad) != ''` : sql`TRUE`
   
   const whereClause = sql`WHERE ${companyCondition} AND ${novedadesCondition}`
@@ -49,7 +56,14 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
   ])
 
   const stats = statsResult[0] as unknown as DashboardStats
-  const companies = companiesResult.map(c => c.transportadora)
+  const companies = companiesResult
+    .map(c => c.transportadora === "REMESAS Y MENSAJES" ? "Natura" : c.transportadora)
+    .filter(Boolean)
+  
+  // Ensure "Natura" is in the list if not already (or if it was just renamed from REMESAS)
+  if (!companies.includes("Natura")) {
+    companies.push("Natura")
+  }
 
   return (
     <div className="min-h-screen flex flex-col">

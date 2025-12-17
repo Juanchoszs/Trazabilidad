@@ -41,7 +41,9 @@ export function DataTable({ shipments }: DataTableProps) {
 
   const transportadoras = useMemo(() => {
     const unique = Array.from(new Set(shipments.map((s) => s.transportadora).filter(Boolean)))
-    return ["Todas", ...unique.sort()]
+    // Map "REMESAS Y MENSAJES" to "Natura" for the filter list
+    const mapped = unique.map(t => t === "REMESAS Y MENSAJES" ? "Natura" : t)
+    return ["Todas", ...mapped.sort()]
   }, [shipments])
 
   const estados = useMemo(() => {
@@ -49,7 +51,7 @@ export function DataTable({ shipments }: DataTableProps) {
     if (transportadoraFilter === "Oriflame") {
       return ["Todos", "PENDIENTE", "ENTREGADO", "NOVEDAD 1", "NOVEDAD 2", "DEVOLUCION"]
     }
-    if (transportadoraFilter === "REMESAS Y MENSAJES") {
+    if (transportadoraFilter === "Natura") {
       return ["Todos", "EN REPARTO", "EN TRANSITO", "ENTREGADO", "DEVOLUCION"]
     }
 
@@ -60,8 +62,12 @@ export function DataTable({ shipments }: DataTableProps) {
 
   const filteredShipments = useMemo(() => {
     return shipments.filter((shipment) => {
-      // Direct match
-      const transportadoraMatch = transportadoraFilter === "Todas" || shipment.transportadora === transportadoraFilter
+      // Direct match handling renaming
+      const isNaturaFilter = transportadoraFilter === "Natura"
+      const transportadoraMatch = 
+        transportadoraFilter === "Todas" || 
+        (isNaturaFilter && shipment.transportadora === "REMESAS Y MENSAJES") ||
+        (!isNaturaFilter && shipment.transportadora === transportadoraFilter)
 
       let estadoMatch = true
       if (estadoFilter !== "Todos") {

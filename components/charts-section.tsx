@@ -32,7 +32,7 @@ export function ChartsSection({ shipments, stats }: ChartsSectionProps) {
 
     shipments.forEach((shipment) => {
       let companyName = shipment.transportadora || "Desconocido"
-      // Reverted mapping: if (companyName === "REMESAS Y MENSAJES") companyName = "Natura"
+      if (companyName === "REMESAS Y MENSAJES") companyName = "Natura"
       
       if (!companyStats[companyName]) {
         companyStats[companyName] = { exitos: 0, devoluciones: 0 }

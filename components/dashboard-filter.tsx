@@ -41,10 +41,10 @@ export function DashboardFilter({ companies }: DashboardFilterProps) {
           <span className="font-medium text-sm">Empresa:</span>
           <Select value={currentCompany} onValueChange={onCompanyChange}>
             <SelectTrigger className="w-[280px]">
-              <SelectValue placeholder="Todas las transportadoras" />
+              <SelectValue placeholder="Todas las empresas" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Todas las transportadoras</SelectItem>
+              <SelectItem value="all">Todas las empresas</SelectItem>
               {companies.map((company) => (
                 <SelectItem key={company} value={company}>
                   {company}
