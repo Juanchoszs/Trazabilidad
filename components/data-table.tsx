@@ -52,12 +52,12 @@ export function DataTable({ shipments }: DataTableProps) {
       return ["Todos", "PENDIENTE", "ENTREGADO", "NOVEDAD 1", "NOVEDAD 2", "DEVOLUCION"]
     }
     if (transportadoraFilter === "Natura") {
-      return ["Todos", "EN REPARTO", "EN TRANSITO", "ENTREGADO", "DEVOLUCION"]
+      return ["Todos", "EN REPARTO", "EN TRANSITO", "ENTREGADO", "DEVOLUCION", "NOVEDAD"]
     }
 
     // Default: Show unique values from data + Special Filters
     const unique = Array.from(new Set(shipments.map((s) => s.estado).filter(Boolean)))
-    return ["Todos", ...unique.sort(), "NOVEDAD 1", "NOVEDAD 2"]
+    return ["Todos", ...unique.sort(), "NOVEDAD", "NOVEDAD 1", "NOVEDAD 2"]
   }, [shipments, transportadoraFilter])
 
   const filteredShipments = useMemo(() => {
@@ -71,12 +71,13 @@ export function DataTable({ shipments }: DataTableProps) {
 
       let estadoMatch = true
       if (estadoFilter !== "Todos") {
-        if (estadoFilter === "NOVEDAD 1") {
+        if (estadoFilter === "NOVEDAD" || estadoFilter === "NOVEDAD 1") {
           estadoMatch = !!shipment.novedad && shipment.novedad.trim() !== ""
         } else if (estadoFilter === "NOVEDAD 2") {
           estadoMatch = !!shipment.novedad2 && shipment.novedad2.trim() !== ""
         } else {
-          estadoMatch = shipment.estado === estadoFilter
+          // Case insensitive match with trim
+          estadoMatch = shipment.estado?.trim().toUpperCase() === estadoFilter.trim().toUpperCase()
         }
       }
 
@@ -107,6 +108,9 @@ export function DataTable({ shipments }: DataTableProps) {
   useMemo(() => {
     setCurrentPage(1)
   }, [transportadoraFilter, estadoFilter, searchQuery])
+
+  // Determine if Novedad 2 column should be shown (Only hidden for Natura)
+  const showNovedad2 = transportadoraFilter !== "Natura" && transportadoraFilter !== "REMESAS Y MENSAJES"
 
   return (
     <Card className="p-6">
@@ -180,7 +184,7 @@ export function DataTable({ shipments }: DataTableProps) {
               <th className="text-left py-3 px-2 font-medium text-muted-foreground">Estado</th>
               <th className="text-left py-3 px-2 font-medium text-muted-foreground">Fecha</th>
               <th className="text-left py-3 px-2 font-medium text-muted-foreground">Novedad</th>
-              <th className="text-left py-3 px-2 font-medium text-muted-foreground">Novedad 2</th>
+              {showNovedad2 && <th className="text-left py-3 px-2 font-medium text-muted-foreground">Novedad 2</th>}
               <th className="text-left py-3 px-2 font-medium text-muted-foreground">PE</th>
               <th className="text-left py-3 px-2 font-medium text-muted-foreground">Cod Cn</th>
               <th className="text-left py-3 px-2 font-medium text-muted-foreground">Nombre Cn</th>
@@ -194,7 +198,7 @@ export function DataTable({ shipments }: DataTableProps) {
           <tbody>
             {paginatedShipments.length === 0 ? (
               <tr>
-                <td colSpan={15} className="py-12 text-center text-muted-foreground">
+                <td colSpan={showNovedad2 ? 16 : 15} className="py-12 text-center text-muted-foreground">
                   No hay envíos registrados
                 </td>
               </tr>
@@ -219,9 +223,11 @@ export function DataTable({ shipments }: DataTableProps) {
                     <td className="py-3 px-2 max-w-[100px] truncate text-xs" title={shipment.novedad || ""}>
                       {shipment.novedad || "-"}
                     </td>
-                    <td className="py-3 px-2 max-w-[100px] truncate text-xs" title={shipment.novedad2 || ""}>
-                      {shipment.novedad2 || "-"}
-                    </td>
+                    {showNovedad2 && (
+                      <td className="py-3 px-2 max-w-[100px] truncate text-xs" title={shipment.novedad2 || ""}>
+                        {shipment.novedad2 || "-"}
+                      </td>
+                    )}
                     <td className="py-3 px-2 text-xs">{shipment.pe || "-"}</td>
                     <td className="py-3 px-2 font-mono text-xs">{shipment.cod_cn || "-"}</td>
                     <td className="py-3 px-2 max-w-[120px] truncate text-xs" title={shipment.nombre_cn || ""}>
