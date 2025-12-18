@@ -30,6 +30,7 @@ export default function EditShipmentPage() {
     estado: "",
     fecha: "",
     novedad: "",
+    novedad2: "",
     pe: "",
     cod_cn: "",
     nombre_cn: "",
@@ -65,6 +66,7 @@ export default function EditShipmentPage() {
           estado: data.estado || "",
           fecha: formatDate(data.fecha),
           novedad: data.novedad || "",
+          novedad2: data.novedad2 || "",
           pe: data.pe || "",
           cod_cn: data.cod_cn || "",
           nombre_cn: data.nombre_cn || "",
@@ -228,7 +230,7 @@ export default function EditShipmentPage() {
                         </SelectTrigger>
                         <SelectContent>
                           {(shipment?.cliente === "Oriflame" || shipment?.transportadora === "Oriflame"
-                            ? ["PENDIENTE", "ENTREGADO"]
+                            ? ["PENDIENTE", "ENTREGADO", "DEVOLUCION", "NOVEDAD 1", "NOVEDAD 2"]
                             : [
                                 "PENDIENTE",
                                 "EN TRANSITO",
@@ -256,7 +258,7 @@ export default function EditShipmentPage() {
                         onChange={(e) => setFormData({ ...formData, fecha: e.target.value })}
                       />
                     </div>
-                    <div className="space-y-2 md:col-span-2">
+                    <div className="space-y-2">
                       <Label htmlFor="novedad">Novedad</Label>
                       <Input
                         id="novedad"
@@ -264,6 +266,16 @@ export default function EditShipmentPage() {
                         onChange={(e) => setFormData({ ...formData, novedad: e.target.value })}
                       />
                     </div>
+                    {(shipment?.cliente === "Oriflame" || shipment?.transportadora === "Oriflame") && (
+                      <div className="space-y-2">
+                        <Label htmlFor="novedad2">Novedad 2</Label>
+                        <Input
+                          id="novedad2"
+                          value={formData.novedad2}
+                          onChange={(e) => setFormData({ ...formData, novedad2: e.target.value })}
+                        />
+                      </div>
+                    )}
                   </div>
                 </div>
 

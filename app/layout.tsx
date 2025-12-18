@@ -9,7 +9,7 @@ const inter = Inter({ subsets: ["latin"] })
 export const metadata: Metadata = {
   title: "Trazabilidad Remesas - Control y Seguimiento",
   description: "Sistema de trazabilidad de remesas y entregas para múltiples empresas",
-  generator: "v0.app",
+
   icons: {
     icon: [
       {

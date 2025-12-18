@@ -56,6 +56,51 @@ function parseDate(value: string | Date | number | undefined): string | null {
   return null
 }
 
+// Expected columns for each company (normalized to lowercase, no spaces for comparison)
+const ORIFLAME_EXPECTED_COLUMNS = [
+  "destinatario", "número pedido", "código empresaria/o", "dirección",
+  "telefono", "ciudad", "departamento", "fecha ingreso a r&m",
+  "fecha de entrega", "fecha entrega promesa", "dias promesa",
+  "estado", "novedad", "novedad 2"
+]
+
+const NATURA_EXPECTED_COLUMNS = [
+  "transportadora", "fecha despacho", "pedido", "guia", "estado",
+  "fecha", "novedad", "pe", "cod cn", "nombre cn",
+  "departamento", "ciudad", "direccion", "telefono"
+]
+
+// Validate Excel structure matches expected columns for the company
+function validateExcelStructure(
+  headers: string[], 
+  empresa: string
+): { valid: boolean; error?: string; detectedHeaders: string[] } {
+  const normalizedHeaders = headers.map(h => h.trim().toLowerCase())
+  const detectedHeaders = headers.map(h => h.trim())
+  
+  const expectedColumns = empresa.toLowerCase() === "oriflame" 
+    ? ORIFLAME_EXPECTED_COLUMNS 
+    : NATURA_EXPECTED_COLUMNS
+  
+  // Check for minimum required columns (at least 50% match)
+  const matchCount = expectedColumns.filter(expected => 
+    normalizedHeaders.some(h => h.includes(expected) || expected.includes(h))
+  ).length
+  
+  const matchPercentage = matchCount / expectedColumns.length
+  
+  if (matchPercentage < 0.5) {
+    const empresaName = empresa.toLowerCase() === "oriflame" ? "ORIFLAME" : "NATURA"
+    return {
+      valid: false,
+      error: `El archivo no corresponde a ${empresaName}. La estructura de columnas no coincide. Se esperaban columnas como: ${expectedColumns.slice(0, 5).join(", ")}...`,
+      detectedHeaders
+    }
+  }
+  
+  return { valid: true, detectedHeaders }
+}
+
 export async function GET() {
   try {
     await ensureTable()
@@ -124,6 +169,31 @@ export async function POST(request: Request) {
       const cliente = (formData.get("cliente")?.toString() || "Natura").trim()
       console.log(`Processing upload for client: '${cliente}'`)
 
+      // Validate Excel structure matches expected format for the company
+      const excelHeaders = rows.length > 0 ? Object.keys(rows[0]) : []
+      const structureValidation = validateExcelStructure(excelHeaders, cliente)
+      
+      if (!structureValidation.valid) {
+        // Update batch as failed
+        await sql`
+          UPDATE upload_batches 
+          SET status = 'failed', error_rows = 1
+          WHERE id = ${batchId}
+        `
+        return NextResponse.json({
+          success: false,
+          batchId,
+          summary: {
+            totalRows: rows.length,
+            insertedRows: 0,
+            duplicateRows: 0,
+            errorRows: rows.length,
+            errors: [structureValidation.error || "Estructura de archivo inválida"],
+            detectedHeaders: structureValidation.detectedHeaders
+          }
+        }, { status: 400 })
+      }
+
     // Helper functions for mapping
     const mapRemesasRow = (row: any) => {
        // Normalize header keys
@@ -182,7 +252,7 @@ export async function POST(request: Request) {
           fecha_despacho: parseDate(getValue("fecha ingreso a r&m", "fecha ingreso", "fecha ingreso a ram")),
           pedido: getValue("número pedido", "numero pedido", "pedido")?.toString() || "",
           guia: getValue("guia", "track id")?.toString() || "",
-          estado: getValue("estado", "status")?.toString() || "",
+          estado: getValue("estado", "status")?.toString()?.trim() || "PENDIENTE",
           fecha: parseDate(getValue("fecha de entrega", "fecha entrega")),
           novedad: getValue("novedad", "observacion", "novedad 1")?.toString() || null,
           novedad2: getValue("novedad 2", "novedad2", "segunda novedad")?.toString() || null,

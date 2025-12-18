@@ -252,33 +252,63 @@ export default function UploadPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-sm space-y-2">
-                  <p className="text-muted-foreground">Las columnas del archivo Excel deben ser:</p>
+                  <p className="text-muted-foreground">Las columnas del archivo Excel para <strong>{client}</strong> deben ser:</p>
                   <div className="grid grid-cols-2 gap-1 text-xs">
-                    {[
-                      "Transportadora",
-                      "Fecha despacho",
-                      "Pedido",
-                      "Guia",
-                      "Estado",
-                      "Fecha",
-                      "Novedad",
-                      "PE",
-                      "Cod Cn",
-                      "Nombre Cn",
-                      "Departamento",
-                      "Ciudad",
-                      "Direccion",
-                      "Telefono",
-                    ].map((col) => (
-                      <div key={col} className="flex items-center gap-1 p-1 bg-muted rounded">
-                        <span className="font-mono">{col}</span>
-                      </div>
-                    ))}
+                    {client === "Oriflame" ? (
+                      <>
+                        {[
+                          "DESTINATARIO",
+                          "NÚMERO PEDIDO",
+                          "CÓDIGO EMPRESARIA/O",
+                          "DIRECCIÓN",
+                          "TELEFONO",
+                          "CIUDAD",
+                          "DEPARTAMENTO",
+                          "FECHA INGRESO A R&M",
+                          "FECHA DE ENTREGA",
+                          "FECHA ENTREGA PROMESA",
+                          "DIAS PROMESA",
+                          "ESTADO",
+                          "NOVEDAD",
+                          "NOVEDAD 2",
+                        ].map((col) => (
+                          <div key={col} className="flex items-center gap-1 p-1 bg-muted rounded">
+                            <span className="font-mono">{col}</span>
+                          </div>
+                        ))}
+                      </>
+                    ) : (
+                      <>
+                        {[
+                          "Transportadora",
+                          "Fecha despacho",
+                          "Pedido",
+                          "Guia",
+                          "Estado",
+                          "Fecha",
+                          "Novedad",
+                          "PE",
+                          "Cod Cn",
+                          "Nombre Cn",
+                          "Departamento",
+                          "Ciudad",
+                          "Direccion",
+                          "Telefono",
+                        ].map((col) => (
+                          <div key={col} className="flex items-center gap-1 p-1 bg-muted rounded">
+                            <span className="font-mono">{col}</span>
+                          </div>
+                        ))}
+                      </>
+                    )}
                   </div>
                   <div className="flex items-start gap-2 mt-3 p-2 bg-yellow-50 dark:bg-yellow-950/20 rounded">
                     <AlertCircle className="h-4 w-4 text-yellow-600 mt-0.5" />
                     <p className="text-yellow-700 dark:text-yellow-500">
-                      Los duplicados se detectan por la combinación de <strong>Pedido + Guía</strong>
+                      {client === "Oriflame" 
+                        ? <>Los duplicados se detectan por la combinación de <strong>NÚMERO PEDIDO + GUÍA</strong></>
+                        : <>Los duplicados se detectan por la combinación de <strong>Pedido + Guía</strong></>
+                      }
                     </p>
                   </div>
                 </div>
