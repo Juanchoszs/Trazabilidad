@@ -236,7 +236,9 @@ export async function POST(request: Request) {
         Object.keys(row).forEach(key => {
           const cleanKey = key.trim().toLowerCase().replace(/\s+/g, '')
           normalizedRow[cleanKey] = row[key]
-          if (!normalizedRow[key]) normalizedRow[key] = row[key]
+          // Also keep original key for fallback
+          const originalKey = key.trim().toLowerCase()
+          if (!normalizedRow[originalKey]) normalizedRow[originalKey] = row[key]
         })
 
         const getValue = (...keys: string[]) => {
@@ -247,22 +249,26 @@ export async function POST(request: Request) {
           return undefined
         }
 
+        // Parse dias_promesa as integer
+        const diasPromesaRaw = getValue("dias promesa", "diaspromesa", "promesa")
+        const diasPromesa = diasPromesaRaw ? parseInt(diasPromesaRaw.toString(), 10) : null
+
         return {
-          transportadora: "Oriflame", // Default value as it's not present in file
-          fecha_despacho: parseDate(getValue("fecha ingreso a r&m", "fecha ingreso", "fecha ingreso a ram")),
-          pedido: getValue("número pedido", "numero pedido", "pedido")?.toString() || "",
-          guia: getValue("guia", "track id")?.toString() || "",
+          guia: getValue("guia", "guía", "track id")?.toString()?.trim() || null,
+          destinatario: getValue("destinatario", "nombre", "recipient")?.toString()?.trim() || null,
+          numero_pedido: getValue("número pedido", "numero pedido", "numeropedido", "pedido")?.toString()?.trim() || "",
+          codigo_empresaria: getValue("código empresaria/o", "codigo empresaria/o", "codigoempresaria/o", "codigo empresario")?.toString()?.trim() || null,
+          direccion: getValue("dirección", "direccion", "address")?.toString()?.trim() || null,
+          telefono: getValue("telefono", "teléfono", "phone")?.toString()?.trim() || null,
+          ciudad: getValue("ciudad", "city")?.toString()?.trim() || null,
+          departamento: getValue("departamento", "department")?.toString()?.trim() || null,
+          fecha_ingreso: parseDate(getValue("fecha ingreso a r&m", "fechaingresoar&m", "fecha ingreso a ram", "fecha ingreso")),
+          fecha_entrega: parseDate(getValue("fecha de entrega", "fechadeentrega", "fecha entrega")),
+          fecha_promesa: parseDate(getValue("fecha entrega promesa", "fechaentregapromesa", "fecha promesa")),
+          dias_promesa: isNaN(diasPromesa as number) ? null : diasPromesa,
           estado: getValue("estado", "status")?.toString()?.trim() || "PENDIENTE",
-          fecha: parseDate(getValue("fecha de entrega", "fecha entrega")),
-          novedad: getValue("novedad", "observacion", "novedad 1")?.toString() || null,
-          novedad2: getValue("novedad 2", "novedad2", "segunda novedad")?.toString() || null,
-          pe: getValue("dias promesa", "promesa")?.toString() || null,
-          cod_cn: getValue("código empresaria/o", "codigo empresaria/o", "codigo empresario")?.toString() || null,
-          nombre_cn: getValue("destinatario", "nombre")?.toString() || null,
-          departamento: getValue("departamento")?.toString() || null,
-          ciudad: getValue("ciudad")?.toString() || null,
-          direccion: getValue("dirección", "direccion")?.toString() || null,
-          telefono: getValue("telefono")?.toString() || null,
+          novedad: getValue("novedad", "novedad 1", "observacion")?.toString()?.trim() || null,
+          novedad2: getValue("novedad 2", "novedad2", "segunda novedad")?.toString()?.trim() || null,
         }
     }
       
@@ -283,18 +289,28 @@ export async function POST(request: Request) {
           const originalIndex = j // originalIndex is relative to the chunk, not the whole file
           
           try {
-            let mappedRow: ReturnType<typeof mapRemesasRow> // Type is the same for both map functions
+            let mappedRow: any
             if (cliente.toLowerCase() === "oriflame") {
               mappedRow = mapOriflameRow(row)
             } else {
               mappedRow = mapRemesasRow(row)
             }
 
-            // Check for required fields
-            if (!mappedRow.pedido && !mappedRow.guia) {
-              errorRows++
-              errors.push(`Fila ${originalIndex + 2}: Pedido y Guía están vacíos`)
-              continue
+            // Check for required fields (different for each client)
+            if (cliente.toLowerCase() === "oriflame") {
+              // ORIFLAME uses numero_pedido
+              if (!(mappedRow as any).numero_pedido && !(mappedRow as any).guia) {
+                errorRows++
+                errors.push(`Fila ${originalIndex + 2}: Número Pedido y Guía están vacíos`)
+                continue
+              }
+            } else {
+              // Natura uses pedido
+              if (!mappedRow.pedido && !mappedRow.guia) {
+                errorRows++
+                errors.push(`Fila ${originalIndex + 2}: Pedido y Guía están vacíos`)
+                continue
+              }
             }
             
             valuesToInsert.push({
@@ -358,45 +374,45 @@ export async function POST(request: Request) {
                 RETURNING id
               `
             } else {
-               // Oriflame -> shipments (With novedad2)
+               // Oriflame -> oriflame_shipments (dedicated table with exact Excel structure)
                resultRows = await sql`
-                INSERT INTO shipments (
-                  transportadora,
-                  fecha_despacho,
-                  pedido,
+                INSERT INTO oriflame_shipments (
                   guia,
-                  estado,
-                  fecha,
-                  novedad,
-                  pe,
-                  cod_cn,
-                  nombre_cn,
-                  departamento,
-                  ciudad,
+                  destinatario,
+                  numero_pedido,
+                  codigo_empresaria,
                   direccion,
                   telefono,
-                  cliente,
-                  novedad2
+                  ciudad,
+                  departamento,
+                  fecha_ingreso,
+                  fecha_entrega,
+                  fecha_promesa,
+                  dias_promesa,
+                  estado,
+                  novedad,
+                  novedad2,
+                  cliente
                 )
                 SELECT 
-                  transportadora,
-                  fecha_despacho,
-                  pedido,
                   guia,
-                  estado,
-                  fecha,
-                  novedad,
-                  pe,
-                  cod_cn,
-                  nombre_cn,
-                  departamento,
-                  ciudad,
+                  destinatario,
+                  numero_pedido,
+                  codigo_empresaria,
                   direccion,
                   telefono,
-                  cliente,
-                  novedad2
-                FROM json_populate_recordset(null::shipments, ${jsonState}::json)
-                ON CONFLICT (pedido, guia) DO NOTHING
+                  ciudad,
+                  departamento,
+                  fecha_ingreso,
+                  fecha_entrega,
+                  fecha_promesa,
+                  dias_promesa,
+                  estado,
+                  novedad,
+                  novedad2,
+                  cliente
+                FROM json_populate_recordset(null::oriflame_shipments, ${jsonState}::json)
+                ON CONFLICT (numero_pedido, guia) DO NOTHING
                 RETURNING id
               `
             }

@@ -23,22 +23,33 @@ export default function EditShipmentPage() {
   const [shipment, setShipment] = useState<Shipment | null>(null)
   const [history, setHistory] = useState<ShipmentHistory[]>([])
   const [formData, setFormData] = useState({
-    transportadora: "",
-    fecha_despacho: "",
-    pedido: "",
+    // Common fields
     guia: "",
     estado: "",
-    fecha: "",
     novedad: "",
-    novedad2: "",
-    pe: "",
-    cod_cn: "",
-    nombre_cn: "",
     departamento: "",
     ciudad: "",
     direccion: "",
     telefono: "",
+    // Natura fields
+    transportadora: "",
+    fecha_despacho: "",
+    pedido: "",
+    fecha: "",
+    pe: "",
+    cod_cn: "",
+    nombre_cn: "",
+    // ORIFLAME fields
+    destinatario: "",
+    numero_pedido: "",
+    codigo_empresaria: "",
+    fecha_ingreso: "",
+    fecha_entrega: "",
+    fecha_promesa: "",
+    dias_promesa: "",
+    novedad2: "",
   })
+  const [sourceTable, setSourceTable] = useState<'natura' | 'oriflame' | null>(null)
 
   useEffect(() => {
     const fetchData = async () => {
@@ -58,22 +69,36 @@ export default function EditShipmentPage() {
           return new Date(date).toISOString().split("T")[0]
         }
 
+        // Detect source table
+        const isOriflame = data.source_table === 'oriflame' || data.cliente === 'Oriflame'
+        setSourceTable(isOriflame ? 'oriflame' : 'natura')
+
         setFormData({
-          transportadora: data.transportadora || "",
-          fecha_despacho: formatDate(data.fecha_despacho),
-          pedido: data.pedido || "",
+          // Common fields
           guia: data.guia || "",
           estado: data.estado || "",
-          fecha: formatDate(data.fecha),
           novedad: data.novedad || "",
-          novedad2: data.novedad2 || "",
-          pe: data.pe || "",
-          cod_cn: data.cod_cn || "",
-          nombre_cn: data.nombre_cn || "",
           departamento: data.departamento || "",
           ciudad: data.ciudad || "",
           direccion: data.direccion || "",
           telefono: data.telefono || "",
+          // Natura fields
+          transportadora: data.transportadora || "",
+          fecha_despacho: formatDate(data.fecha_despacho),
+          pedido: data.pedido || "",
+          fecha: formatDate(data.fecha),
+          pe: data.pe || "",
+          cod_cn: data.cod_cn || "",
+          nombre_cn: data.nombre_cn || "",
+          // ORIFLAME fields
+          destinatario: data.destinatario || "",
+          numero_pedido: data.numero_pedido || "",
+          codigo_empresaria: data.codigo_empresaria || "",
+          fecha_ingreso: formatDate(data.fecha_ingreso),
+          fecha_entrega: formatDate(data.fecha_entrega),
+          fecha_promesa: formatDate(data.fecha_promesa),
+          dias_promesa: data.dias_promesa?.toString() || "",
+          novedad2: data.novedad2 || "",
         })
 
         if (historyRes.ok) {
@@ -176,44 +201,83 @@ export default function EditShipmentPage() {
             </CardHeader>
             <CardContent>
               <form onSubmit={handleSubmit} className="space-y-6">
-                {/* Row 1: Transportadora, Fecha despacho, Pedido, Guía */}
-                <div className="grid gap-4 md:grid-cols-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="transportadora">Transportadora</Label>
-                    <Input
-                      id="transportadora"
-                      value={formData.transportadora}
-                      onChange={(e) => setFormData({ ...formData, transportadora: e.target.value })}
-                    />
+                {/* Row 1: Different fields for ORIFLAME vs Natura */}
+                {sourceTable === 'oriflame' ? (
+                  /* ORIFLAME Form */
+                  <div className="grid gap-4 md:grid-cols-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="guia">Guía</Label>
+                      <Input
+                        id="guia"
+                        value={formData.guia}
+                        onChange={(e) => setFormData({ ...formData, guia: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="destinatario">Destinatario</Label>
+                      <Input
+                        id="destinatario"
+                        value={formData.destinatario}
+                        onChange={(e) => setFormData({ ...formData, destinatario: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="numero_pedido">Número Pedido</Label>
+                      <Input
+                        id="numero_pedido"
+                        value={formData.numero_pedido}
+                        onChange={(e) => setFormData({ ...formData, numero_pedido: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="codigo_empresaria">Código Empresaria/o</Label>
+                      <Input
+                        id="codigo_empresaria"
+                        value={formData.codigo_empresaria}
+                        onChange={(e) => setFormData({ ...formData, codigo_empresaria: e.target.value })}
+                      />
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="fecha_despacho">Fecha Despacho</Label>
-                    <Input
-                      id="fecha_despacho"
-                      type="date"
-                      value={formData.fecha_despacho}
-                      onChange={(e) => setFormData({ ...formData, fecha_despacho: e.target.value })}
-                    />
+                ) : (
+                  /* NATURA Form */
+                  <div className="grid gap-4 md:grid-cols-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="transportadora">Transportadora</Label>
+                      <Input
+                        id="transportadora"
+                        value={formData.transportadora}
+                        onChange={(e) => setFormData({ ...formData, transportadora: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="fecha_despacho">Fecha Despacho</Label>
+                      <Input
+                        id="fecha_despacho"
+                        type="date"
+                        value={formData.fecha_despacho}
+                        onChange={(e) => setFormData({ ...formData, fecha_despacho: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="pedido">Pedido</Label>
+                      <Input
+                        id="pedido"
+                        value={formData.pedido}
+                        onChange={(e) => setFormData({ ...formData, pedido: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="guia">Guía</Label>
+                      <Input
+                        id="guia"
+                        value={formData.guia}
+                        onChange={(e) => setFormData({ ...formData, guia: e.target.value })}
+                      />
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="pedido">Pedido</Label>
-                    <Input
-                      id="pedido"
-                      value={formData.pedido}
-                      onChange={(e) => setFormData({ ...formData, pedido: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="guia">Guía</Label>
-                    <Input
-                      id="guia"
-                      value={formData.guia}
-                      onChange={(e) => setFormData({ ...formData, guia: e.target.value })}
-                    />
-                  </div>
-                </div>
+                )}
 
-                {/* Row 2: Estado, Fecha, Novedad, PE */}
+                {/* Row 2: Estado, Dates, Novedad */}
                 <div className="p-4 rounded-lg bg-muted/50 space-y-4">
                   <h3 className="font-medium text-sm text-muted-foreground uppercase tracking-wide">
                     Estado y Novedad
@@ -229,8 +293,8 @@ export default function EditShipmentPage() {
                           <SelectValue placeholder="Seleccionar estado" />
                         </SelectTrigger>
                         <SelectContent>
-                          {(shipment?.cliente === "Oriflame" || shipment?.transportadora === "Oriflame"
-                            ? ["PENDIENTE", "ENTREGADO", "DEVOLUCION", "NOVEDAD 1", "NOVEDAD 2"]
+                          {(sourceTable === 'oriflame'
+                            ? ["PENDIENTE", "ENTREGADO"]
                             : [
                                 "PENDIENTE",
                                 "EN TRANSITO",
@@ -249,15 +313,47 @@ export default function EditShipmentPage() {
                         </SelectContent>
                       </Select>
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="fecha">Fecha</Label>
-                      <Input
-                        id="fecha"
-                        type="date"
-                        value={formData.fecha}
-                        onChange={(e) => setFormData({ ...formData, fecha: e.target.value })}
-                      />
-                    </div>
+                    {sourceTable === 'oriflame' ? (
+                      <>
+                        <div className="space-y-2">
+                          <Label htmlFor="fecha_ingreso">Fecha Ingreso R&M</Label>
+                          <Input
+                            id="fecha_ingreso"
+                            type="date"
+                            value={formData.fecha_ingreso}
+                            onChange={(e) => setFormData({ ...formData, fecha_ingreso: e.target.value })}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="fecha_entrega">Fecha Entrega</Label>
+                          <Input
+                            id="fecha_entrega"
+                            type="date"
+                            value={formData.fecha_entrega}
+                            onChange={(e) => setFormData({ ...formData, fecha_entrega: e.target.value })}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="fecha_promesa">Fecha Promesa</Label>
+                          <Input
+                            id="fecha_promesa"
+                            type="date"
+                            value={formData.fecha_promesa}
+                            onChange={(e) => setFormData({ ...formData, fecha_promesa: e.target.value })}
+                          />
+                        </div>
+                      </>
+                    ) : (
+                      <div className="space-y-2">
+                        <Label htmlFor="fecha">Fecha</Label>
+                        <Input
+                          id="fecha"
+                          type="date"
+                          value={formData.fecha}
+                          onChange={(e) => setFormData({ ...formData, fecha: e.target.value })}
+                        />
+                      </div>
+                    )}
                     <div className="space-y-2">
                       <Label htmlFor="novedad">Novedad</Label>
                       <Input
@@ -266,46 +362,59 @@ export default function EditShipmentPage() {
                         onChange={(e) => setFormData({ ...formData, novedad: e.target.value })}
                       />
                     </div>
-                    {(shipment?.cliente === "Oriflame" || shipment?.transportadora === "Oriflame") && (
-                      <div className="space-y-2">
-                        <Label htmlFor="novedad2">Novedad 2</Label>
-                        <Input
-                          id="novedad2"
-                          value={formData.novedad2}
-                          onChange={(e) => setFormData({ ...formData, novedad2: e.target.value })}
-                        />
-                      </div>
+                    {sourceTable === 'oriflame' && (
+                      <>
+                        <div className="space-y-2">
+                          <Label htmlFor="dias_promesa">Días Promesa</Label>
+                          <Input
+                            id="dias_promesa"
+                            type="number"
+                            value={formData.dias_promesa}
+                            onChange={(e) => setFormData({ ...formData, dias_promesa: e.target.value })}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="novedad2">Novedad 2</Label>
+                          <Input
+                            id="novedad2"
+                            value={formData.novedad2}
+                            onChange={(e) => setFormData({ ...formData, novedad2: e.target.value })}
+                          />
+                        </div>
+                      </>
                     )}
                   </div>
                 </div>
 
-                {/* Row 3: PE, Cod Cn, Nombre Cn */}
-                <div className="grid gap-4 md:grid-cols-3">
-                  <div className="space-y-2">
-                    <Label htmlFor="pe">PE</Label>
-                    <Input
-                      id="pe"
-                      value={formData.pe}
-                      onChange={(e) => setFormData({ ...formData, pe: e.target.value })}
-                    />
+                {/* Row 3: PE, Cod Cn, Nombre Cn - Natura only */}
+                {sourceTable !== 'oriflame' && (
+                  <div className="grid gap-4 md:grid-cols-3">
+                    <div className="space-y-2">
+                      <Label htmlFor="pe">PE</Label>
+                      <Input
+                        id="pe"
+                        value={formData.pe}
+                        onChange={(e) => setFormData({ ...formData, pe: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="cod_cn">Cod Cn</Label>
+                      <Input
+                        id="cod_cn"
+                        value={formData.cod_cn}
+                        onChange={(e) => setFormData({ ...formData, cod_cn: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="nombre_cn">Nombre Cn</Label>
+                      <Input
+                        id="nombre_cn"
+                        value={formData.nombre_cn}
+                        onChange={(e) => setFormData({ ...formData, nombre_cn: e.target.value })}
+                      />
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="cod_cn">Cod Cn</Label>
-                    <Input
-                      id="cod_cn"
-                      value={formData.cod_cn}
-                      onChange={(e) => setFormData({ ...formData, cod_cn: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="nombre_cn">Nombre Cn</Label>
-                    <Input
-                      id="nombre_cn"
-                      value={formData.nombre_cn}
-                      onChange={(e) => setFormData({ ...formData, nombre_cn: e.target.value })}
-                    />
-                  </div>
-                </div>
+                )}
 
                 {/* Row 4: Departamento, Ciudad, Dirección, Teléfono */}
                 <div className="grid gap-4 md:grid-cols-4">

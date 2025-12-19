@@ -177,68 +177,105 @@ export function DataTable({ shipments }: DataTableProps) {
         <table className="w-full border-collapse text-sm">
           <thead>
             <tr className="border-b bg-muted/50">
-              <th className="text-left py-3 px-2 font-medium text-muted-foreground">Transportadora</th>
-              <th className="text-left py-3 px-2 font-medium text-muted-foreground">Fecha Despacho</th>
-              <th className="text-left py-3 px-2 font-medium text-muted-foreground">Pedido</th>
-              <th className="text-left py-3 px-2 font-medium text-muted-foreground">Guía</th>
-              <th className="text-left py-3 px-2 font-medium text-muted-foreground">Estado</th>
-              <th className="text-left py-3 px-2 font-medium text-muted-foreground">Fecha</th>
-              <th className="text-left py-3 px-2 font-medium text-muted-foreground">Novedad</th>
-              {showNovedad2 && <th className="text-left py-3 px-2 font-medium text-muted-foreground">Novedad 2</th>}
-              <th className="text-left py-3 px-2 font-medium text-muted-foreground">PE</th>
-              <th className="text-left py-3 px-2 font-medium text-muted-foreground">Cod Cn</th>
-              <th className="text-left py-3 px-2 font-medium text-muted-foreground">Nombre Cn</th>
-              <th className="text-left py-3 px-2 font-medium text-muted-foreground">Departamento</th>
-              <th className="text-left py-3 px-2 font-medium text-muted-foreground">Ciudad</th>
-              <th className="text-left py-3 px-2 font-medium text-muted-foreground">Dirección</th>
-              <th className="text-left py-3 px-2 font-medium text-muted-foreground">Teléfono</th>
-              <th className="text-left py-3 px-2 font-medium text-muted-foreground sticky right-0 bg-muted z-10 shadow-[-5px_0px_10px_-5px_rgba(0,0,0,0.1)]">Acciones</th>
+              {transportadoraFilter === "Oriflame" ? (
+                /* ORIFLAME Column Headers - matching Excel structure */
+                <>
+                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">Guía</th>
+                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">Destinatario</th>
+                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">Número Pedido</th>
+                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">Código Empresaria/o</th>
+                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">Dirección</th>
+                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">Teléfono</th>
+                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">Ciudad</th>
+                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">Departamento</th>
+                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">Fecha Ingreso R&M</th>
+                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">Fecha Entrega</th>
+                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">Fecha Promesa</th>
+                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">Días Promesa</th>
+                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">Estado</th>
+                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">Novedad</th>
+                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">Novedad 2</th>
+                  <th className="text-left py-3 px-2 font-medium text-muted-foreground sticky right-0 bg-muted z-10 shadow-[-5px_0px_10px_-5px_rgba(0,0,0,0.1)]">Acciones</th>
+                </>
+              ) : (
+                /* NATURA Column Headers */
+                <>
+                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">Transportadora</th>
+                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">Fecha Despacho</th>
+                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">Pedido</th>
+                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">Guía</th>
+                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">Estado</th>
+                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">Fecha</th>
+                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">Novedad</th>
+                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">PE</th>
+                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">Cod Cn</th>
+                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">Nombre Cn</th>
+                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">Departamento</th>
+                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">Ciudad</th>
+                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">Dirección</th>
+                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">Teléfono</th>
+                  <th className="text-left py-3 px-2 font-medium text-muted-foreground sticky right-0 bg-muted z-10 shadow-[-5px_0px_10px_-5px_rgba(0,0,0,0.1)]">Acciones</th>
+                </>
+              )}
             </tr>
           </thead>
           <tbody>
             {paginatedShipments.length === 0 ? (
               <tr>
-                <td colSpan={showNovedad2 ? 16 : 15} className="py-12 text-center text-muted-foreground">
+                <td colSpan={16} className="py-12 text-center text-muted-foreground">
                   No hay envíos registrados
                 </td>
               </tr>
             ) : (
               paginatedShipments.map((shipment) => {
                 const estadoBadge = getEstadoBadge(shipment.estado)
-                const fechaDespacho = shipment.fecha_despacho
-                  ? new Date(shipment.fecha_despacho).toLocaleDateString("es-CO")
-                  : "-"
-                const fecha = shipment.fecha ? new Date(shipment.fecha).toLocaleDateString("es-CO") : "-"
+                const formatDate = (date: string | null) => 
+                  date ? new Date(date).toLocaleDateString("es-CO") : "-"
 
                 return (
                   <tr key={shipment.id} className="border-b hover:bg-muted/50 transition-colors group">
-                    <td className="py-3 px-2 text-xs">{shipment.transportadora || "-"}</td>
-                    <td className="py-3 px-2 text-xs">{fechaDespacho}</td>
-                    <td className="py-3 px-2 font-mono text-xs">{shipment.pedido || "-"}</td>
-                    <td className="py-3 px-2 font-mono text-xs">{shipment.guia || "-"}</td>
-                    <td className="py-3 px-2">
-                      <Badge className={`${estadoBadge.color} border-0 text-xs`}>{estadoBadge.label}</Badge>
-                    </td>
-                    <td className="py-3 px-2 text-xs">{fecha}</td>
-                    <td className="py-3 px-2 max-w-[100px] truncate text-xs" title={shipment.novedad || ""}>
-                      {shipment.novedad || "-"}
-                    </td>
-                    {showNovedad2 && (
-                      <td className="py-3 px-2 max-w-[100px] truncate text-xs" title={shipment.novedad2 || ""}>
-                        {shipment.novedad2 || "-"}
-                      </td>
+                    {transportadoraFilter === "Oriflame" ? (
+                      /* ORIFLAME Row Data - matching Excel structure */
+                      <>
+                        <td className="py-3 px-2 font-mono text-xs">{shipment.guia || "-"}</td>
+                        <td className="py-3 px-2 max-w-[120px] truncate text-xs" title={shipment.destinatario || shipment.nombre_cn || ""}>{shipment.destinatario || shipment.nombre_cn || "-"}</td>
+                        <td className="py-3 px-2 font-mono text-xs">{shipment.numero_pedido || shipment.pedido || "-"}</td>
+                        <td className="py-3 px-2 font-mono text-xs">{shipment.codigo_empresaria || shipment.cod_cn || "-"}</td>
+                        <td className="py-3 px-2 max-w-[100px] truncate text-xs" title={shipment.direccion || ""}>{shipment.direccion || "-"}</td>
+                        <td className="py-3 px-2 text-xs">{shipment.telefono || "-"}</td>
+                        <td className="py-3 px-2 text-xs">{shipment.ciudad || "-"}</td>
+                        <td className="py-3 px-2 text-xs">{shipment.departamento || "-"}</td>
+                        <td className="py-3 px-2 text-xs">{formatDate(shipment.fecha_ingreso || shipment.fecha_despacho)}</td>
+                        <td className="py-3 px-2 text-xs">{formatDate(shipment.fecha_entrega || shipment.fecha)}</td>
+                        <td className="py-3 px-2 text-xs">{formatDate(shipment.fecha_promesa)}</td>
+                        <td className="py-3 px-2 text-xs">{shipment.dias_promesa || shipment.pe || "-"}</td>
+                        <td className="py-3 px-2">
+                          <Badge className={`${estadoBadge.color} border-0 text-xs`}>{estadoBadge.label}</Badge>
+                        </td>
+                        <td className="py-3 px-2 max-w-[100px] truncate text-xs" title={shipment.novedad || ""}>{shipment.novedad || "-"}</td>
+                        <td className="py-3 px-2 max-w-[100px] truncate text-xs" title={shipment.novedad2 || ""}>{shipment.novedad2 || "-"}</td>
+                      </>
+                    ) : (
+                      /* NATURA Row Data */
+                      <>
+                        <td className="py-3 px-2 text-xs">{shipment.transportadora || "-"}</td>
+                        <td className="py-3 px-2 text-xs">{formatDate(shipment.fecha_despacho)}</td>
+                        <td className="py-3 px-2 font-mono text-xs">{shipment.pedido || "-"}</td>
+                        <td className="py-3 px-2 font-mono text-xs">{shipment.guia || "-"}</td>
+                        <td className="py-3 px-2">
+                          <Badge className={`${estadoBadge.color} border-0 text-xs`}>{estadoBadge.label}</Badge>
+                        </td>
+                        <td className="py-3 px-2 text-xs">{formatDate(shipment.fecha)}</td>
+                        <td className="py-3 px-2 max-w-[100px] truncate text-xs" title={shipment.novedad || ""}>{shipment.novedad || "-"}</td>
+                        <td className="py-3 px-2 text-xs">{shipment.pe || "-"}</td>
+                        <td className="py-3 px-2 font-mono text-xs">{shipment.cod_cn || "-"}</td>
+                        <td className="py-3 px-2 max-w-[120px] truncate text-xs" title={shipment.nombre_cn || ""}>{shipment.nombre_cn || "-"}</td>
+                        <td className="py-3 px-2 text-xs">{shipment.departamento || "-"}</td>
+                        <td className="py-3 px-2 text-xs">{shipment.ciudad || "-"}</td>
+                        <td className="py-3 px-2 max-w-[100px] truncate text-xs" title={shipment.direccion || ""}>{shipment.direccion || "-"}</td>
+                        <td className="py-3 px-2 text-xs">{shipment.telefono || "-"}</td>
+                      </>
                     )}
-                    <td className="py-3 px-2 text-xs">{shipment.pe || "-"}</td>
-                    <td className="py-3 px-2 font-mono text-xs">{shipment.cod_cn || "-"}</td>
-                    <td className="py-3 px-2 max-w-[120px] truncate text-xs" title={shipment.nombre_cn || ""}>
-                      {shipment.nombre_cn || "-"}
-                    </td>
-                    <td className="py-3 px-2 text-xs">{shipment.departamento || "-"}</td>
-                    <td className="py-3 px-2 text-xs">{shipment.ciudad || "-"}</td>
-                    <td className="py-3 px-2 max-w-[100px] truncate text-xs" title={shipment.direccion || ""}>
-                      {shipment.direccion || "-"}
-                    </td>
-                    <td className="py-3 px-2 text-xs">{shipment.telefono || "-"}</td>
                     <td className="py-3 px-2 sticky right-0 bg-background group-hover:bg-muted transition-colors z-10 shadow-[-5px_0px_10px_-5px_rgba(0,0,0,0.1)]">
                       <Link href={`/edit/${shipment.id}`}>
                         <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
