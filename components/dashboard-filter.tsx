@@ -11,15 +11,15 @@ interface DashboardFilterProps {
 export function DashboardFilter({ companies }: DashboardFilterProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const currentCompany = searchParams.get("transportadora") || "all"
+  const currentCompany = searchParams.get("transportadora") || "Natura"
   const showNovedades = searchParams.get("novedades") === "true"
 
   const onCompanyChange = (value: string) => {
     const params = new URLSearchParams(searchParams)
-    if (value && value !== "all") {
+    if (value) {
       params.set("transportadora", value)
     } else {
-      params.delete("transportadora")
+      params.set("transportadora", "Natura")
     }
     router.push(`/?${params.toString()}`)
   }
@@ -41,10 +41,9 @@ export function DashboardFilter({ companies }: DashboardFilterProps) {
           <span className="font-medium text-sm">Empresa:</span>
           <Select value={currentCompany} onValueChange={onCompanyChange}>
             <SelectTrigger className="w-[280px]">
-              <SelectValue placeholder="Todas las empresas" />
+              <SelectValue placeholder="Seleccionar empresa" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Todas las empresas</SelectItem>
               {companies.map((company) => (
                 <SelectItem key={company} value={company}>
                   {company}

@@ -76,7 +76,7 @@ export default function EditShipmentPage() {
         setFormData({
           // Common fields
           guia: data.guia || "",
-          estado: data.estado || "",
+          estado: data.estado ? data.estado.trim().toUpperCase() : "",
           novedad: data.novedad || "",
           departamento: data.departamento || "",
           ciudad: data.ciudad || "",
@@ -302,8 +302,6 @@ export default function EditShipmentPage() {
                                 "ENTREGADO",
                                 "NO ENTREGADO",
                                 "DEVOLUCION",
-                                "FALLIDO",
-                                "PERDIDO",
                               ]
                           ).map((status) => (
                             <SelectItem key={status} value={status}>

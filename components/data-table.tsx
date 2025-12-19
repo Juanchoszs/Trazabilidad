@@ -3,11 +3,14 @@
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Download, FileText, Filter, Edit, Search, ChevronLeft, ChevronRight } from "lucide-react"
+import { Download, FileText, Filter, Edit, Search, ChevronLeft, ChevronRight, CheckSquare } from "lucide-react"
 import { useState, useMemo } from "react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
+import { Checkbox } from "@/components/ui/checkbox"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
+import { CheckCircle2, XCircle } from "lucide-react"
 
 interface DataTableProps {
   shipments: any[]
@@ -34,16 +37,37 @@ function getEstadoBadge(estado: string | null) {
 const ITEMS_PER_PAGE = 20
 
 export function DataTable({ shipments }: DataTableProps) {
-  const [transportadoraFilter, setTransportadoraFilter] = useState("Todas")
+  const [transportadoraFilter, setTransportadoraFilter] = useState("Natura")
   const [estadoFilter, setEstadoFilter] = useState("Todos")
   const [searchQuery, setSearchQuery] = useState("")
   const [currentPage, setCurrentPage] = useState(1)
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
+
+  const toggleAll = (checked: boolean) => {
+    if (checked) {
+      const allIds = paginatedShipments.map((s) => s.id)
+      setSelectedIds(new Set(allIds))
+    } else {
+      setSelectedIds(new Set())
+    }
+  }
+
+  const toggleOne = (id: number) => {
+    const next = new Set(selectedIds)
+    if (next.has(id)) {
+      next.delete(id)
+    } else {
+      next.add(id)
+    }
+    setSelectedIds(next)
+  }
 
   const transportadoras = useMemo(() => {
     const unique = Array.from(new Set(shipments.map((s) => s.transportadora).filter(Boolean)))
     // Map "REMESAS Y MENSAJES" to "Natura" for the filter list
     const mapped = unique.map(t => t === "REMESAS Y MENSAJES" ? "Natura" : t)
-    return ["Todas", ...mapped.sort()]
+    const sorted = Array.from(new Set(mapped)).sort()
+    return sorted
   }, [shipments])
 
   const estados = useMemo(() => {
@@ -52,12 +76,13 @@ export function DataTable({ shipments }: DataTableProps) {
       return ["Todos", "PENDIENTE", "ENTREGADO", "NOVEDAD 1", "NOVEDAD 2", "DEVOLUCION"]
     }
     if (transportadoraFilter === "Natura") {
-      return ["Todos", "EN REPARTO", "EN TRANSITO", "ENTREGADO", "DEVOLUCION", "NOVEDAD"]
+      return ["Todos", "EN TRANSITO", "EN REPARTO", "ENTREGADO", "DEVOLUCION", "NOVEDAD"]
     }
 
     // Default: Show unique values from data + Special Filters
     const unique = Array.from(new Set(shipments.map((s) => s.estado).filter(Boolean)))
-    return ["Todos", ...unique.sort(), "NOVEDAD", "NOVEDAD 1", "NOVEDAD 2"]
+    // Filter out FALLIDO and PERDIDO if they are likely Natura records mixed in
+    return ["Todos", ...unique.filter(e => e !== "FALLIDO" && e !== "PERDIDO").sort(), "NOVEDAD", "NOVEDAD 1", "NOVEDAD 2"]
   }, [shipments, transportadoraFilter])
 
   const filteredShipments = useMemo(() => {
@@ -104,16 +129,90 @@ export function DataTable({ shipments }: DataTableProps) {
     return filteredShipments.slice(start, start + ITEMS_PER_PAGE)
   }, [filteredShipments, currentPage])
 
-  // Reset page when filters change
+  // Reset selection when filters or page change
   useMemo(() => {
+    setSelectedIds(new Set())
     setCurrentPage(1)
   }, [transportadoraFilter, estadoFilter, searchQuery])
+
+  useMemo(() => {
+    setSelectedIds(new Set())
+  }, [currentPage])
+
+  const router = useRouter()
+  const [isUpdating, setIsUpdating] = useState(false)
+
+  const handleBulkUpdate = async (newStatus: string) => {
+    setIsUpdating(true)
+    try {
+      const response = await fetch("/api/shipments/bulk-update", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ids: Array.from(selectedIds),
+          status: newStatus,
+          company: transportadoraFilter
+        }),
+      })
+
+      if (!response.ok) throw new Error("Error en la actualización masiva")
+
+      setSelectedIds(new Set())
+      router.refresh()
+    } catch (error) {
+      console.error(error)
+      alert("Error al actualizar registros")
+    } finally {
+      setIsUpdating(false)
+    }
+  }
 
   // Determine if Novedad 2 column should be shown (Only hidden for Natura)
   const showNovedad2 = transportadoraFilter !== "Natura" && transportadoraFilter !== "REMESAS Y MENSAJES"
 
   return (
-    <Card className="p-6">
+    <Card className="p-6 relative">
+      {/* Floating Bulk Action Bar */}
+      {selectedIds.size > 0 && (
+        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 bg-white border shadow-2xl rounded-full px-6 py-3 flex items-center gap-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
+          <div className="flex items-center gap-2 border-r pr-4">
+            <CheckSquare className="h-5 w-5 text-blue-600" />
+            <span className="font-medium text-sm whitespace-nowrap">
+              {selectedIds.size} seleccionados
+            </span>
+          </div>
+          
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground whitespace-nowrap">Cambiar estado a:</span>
+            <div className="flex gap-1">
+              {(transportadoraFilter === "Oriflame" 
+                ? ["PENDIENTE", "ENTREGADO"]
+                : ["PENDIENTE", "EN TRANSITO", "EN REPARTO", "ENTREGADO", "DEVOLUCION"]
+              ).map((status) => (
+                <Button 
+                  key={status}
+                  variant="outline" 
+                  size="sm" 
+                  className="rounded-full text-[10px] h-7 px-3 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-200"
+                  onClick={() => handleBulkUpdate(status)}
+                  disabled={isUpdating}
+                >
+                  {status}
+                </Button>
+              ))}
+            </div>
+          </div>
+
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className="rounded-full h-8 w-8 p-0"
+            onClick={() => setSelectedIds(new Set())}
+          >
+            <XCircle className="h-5 w-5 text-muted-foreground" />
+          </Button>
+        </div>
+      )}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
         <div>
           <h2 className="text-xl font-semibold">Matriz Madre - Trazabilidad</h2>
@@ -177,6 +276,12 @@ export function DataTable({ shipments }: DataTableProps) {
         <table className="w-full border-collapse text-sm">
           <thead>
             <tr className="border-b bg-muted/50">
+              <th className="w-10 py-3 px-2">
+                <Checkbox 
+                  checked={paginatedShipments.length > 0 && selectedIds.size === paginatedShipments.length}
+                  onCheckedChange={toggleAll}
+                />
+              </th>
               {transportadoraFilter === "Oriflame" ? (
                 /* ORIFLAME Column Headers - matching Excel structure */
                 <>
@@ -233,7 +338,13 @@ export function DataTable({ shipments }: DataTableProps) {
                   date ? new Date(date).toLocaleDateString("es-CO") : "-"
 
                 return (
-                  <tr key={shipment.id} className="border-b hover:bg-muted/50 transition-colors group">
+                  <tr key={shipment.id} className={`border-b hover:bg-muted/50 transition-colors group ${selectedIds.has(shipment.id) ? 'bg-blue-50/50' : ''}`}>
+                    <td className="py-3 px-2">
+                      <Checkbox 
+                        checked={selectedIds.has(shipment.id)} 
+                        onCheckedChange={() => toggleOne(shipment.id)}
+                      />
+                    </td>
                     {transportadoraFilter === "Oriflame" ? (
                       /* ORIFLAME Row Data - matching Excel structure */
                       <>

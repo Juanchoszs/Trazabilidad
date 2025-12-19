@@ -120,7 +120,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error("[v0] Error deleting shipment:", error)
+    console.error(" Error deleting shipment:", error)
     return NextResponse.json({ error: "Error al eliminar envío" }, { status: 500 })
   }
 }
