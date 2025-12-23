@@ -20,6 +20,8 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
     companyCondition = sql`cliente = 'Natura' OR transportadora = 'REMESAS Y MENSAJES'`
   } else if (filter === "Oriflame") {
     companyCondition = sql`cliente = 'Oriflame'`
+  } else if (filter === "Offcors") {
+    companyCondition = sql`cliente = 'Offcors'`
   } else if (filter) {
     companyCondition = sql`transportadora = ${filter}`
   }
@@ -34,11 +36,11 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
     SELECT 
       id, 
       transportadora, 
-      fecha_despacho, 
+      fecha_despacho::text, 
       pedido, 
       guia, 
       estado, 
-      fecha, 
+      fecha::text, 
       novedad, 
       pe, 
       cod_cn, 
@@ -49,25 +51,34 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
       telefono, 
       cliente, 
       NULL::text as novedad2,
-      NULL::date as fecha_ingreso,
-      NULL::date as fecha_entrega,
-      NULL::date as fecha_promesa,
+      NULL::text as fecha_ingreso,
+      NULL::text as fecha_entrega,
+      NULL::text as fecha_promesa,
       NULL::int as dias_promesa,
       NULL::text as destinatario,
       NULL::text as numero_pedido,
       NULL::text as codigo_empresaria,
       created_at, 
-      updated_at 
+      updated_at,
+      NULL::int as no_cierre_despacho,
+      NULL::text as nro_entrega,
+      NULL::int as unidad_embalaje,
+      NULL::int as canal,
+      NULL::text as tipo_embalaje,
+      NULL::text as guia_subida_rym,
+      NULL::text as novedad_entrega,
+      NULL::text as novedad_1,
+      NULL::text as novedad_2
     FROM natura_shipments
     UNION ALL
     SELECT 
       id, 
       'Oriflame' as transportadora, 
-      fecha_ingreso as fecha_despacho, 
+      fecha_ingreso::text as fecha_despacho, 
       numero_pedido as pedido, 
       guia, 
       estado, 
-      fecha_entrega as fecha, 
+      fecha_entrega::text as fecha, 
       novedad, 
       dias_promesa::text as pe, 
       codigo_empresaria as cod_cn, 
@@ -78,16 +89,63 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
       telefono, 
       cliente, 
       novedad2,
-      fecha_ingreso,
-      fecha_entrega,
-      fecha_promesa,
+      fecha_ingreso::text,
+      fecha_entrega::text,
+      fecha_promesa::text,
       dias_promesa,
       destinatario,
       numero_pedido,
       codigo_empresaria,
       created_at, 
-      updated_at
+      updated_at,
+      NULL::int as no_cierre_despacho,
+      NULL::text as nro_entrega,
+      NULL::int as unidad_embalaje,
+      NULL::int as canal,
+      NULL::text as tipo_embalaje,
+      NULL::text as guia_subida_rym,
+      NULL::text as novedad_entrega,
+      NULL::text as novedad_1,
+      NULL::text as novedad_2
     FROM oriflame_shipments
+    UNION ALL
+    SELECT 
+      id, 
+      'Offcors' as transportadora, 
+      fecha_despacho::text, 
+      no_guia_hermeco as pedido, 
+      numero_guia_rym as guia, 
+      estado, 
+      fecha_entrega::text as fecha, 
+      novedad_despacho as novedad, 
+      canal::text as pe, 
+      cedula_cliente as cod_cn, 
+      destinatario as nombre_cn, 
+      departamento, 
+      ciudad, 
+      direccion, 
+      telefono, 
+      cliente, 
+      novedad_1 || ' | ' || novedad_2 as novedad2,
+      fecha_despacho::text as fecha_ingreso,
+      fecha_entrega::text,
+      NULL::text as fecha_promesa,
+      NULL::int as dias_promesa,
+      destinatario,
+      no_guia_hermeco as numero_pedido,
+      cedula_cliente as codigo_empresaria,
+      created_at, 
+      updated_at,
+      no_cierre_despacho,
+      nro_entrega::text,
+      unidad_embalaje,
+      canal,
+      tipo_embalaje,
+      guia_subida_rym,
+      novedad_entrega,
+      novedad_1,
+      novedad_2
+    FROM offcors_shipments
   `
 
   const [shipments, statsResult, companiesResult] = await Promise.all([

@@ -18,6 +18,8 @@ export async function PATCH(request: Request) {
       table = "natura_shipments"
     } else if (company === "Oriflame") {
       table = "oriflame_shipments"
+    } else if (company === "Offcors") {
+      table = "offcors_shipments"
     } else {
       // Fallback: Check the first ID to see where it belongs
       const id = ids[0]
@@ -28,6 +30,11 @@ export async function PATCH(request: Request) {
         const isNatura = await sql`SELECT id FROM natura_shipments WHERE id = ${id} LIMIT 1`
         if (isNatura.length > 0) {
           table = "natura_shipments"
+        } else {
+          const isOffcors = await sql`SELECT id FROM offcors_shipments WHERE id = ${id} LIMIT 1`
+          if (isOffcors.length > 0) {
+            table = "offcors_shipments"
+          }
         }
       }
     }
@@ -36,6 +43,12 @@ export async function PATCH(request: Request) {
     if (table === "oriflame_shipments") {
         await sql`
           UPDATE oriflame_shipments
+          SET estado = ${status}, updated_at = NOW()
+          WHERE id = ANY(${ids})
+        `
+    } else if (table === "offcors_shipments") {
+        await sql`
+          UPDATE offcors_shipments
           SET estado = ${status}, updated_at = NOW()
           WHERE id = ANY(${ids})
         `

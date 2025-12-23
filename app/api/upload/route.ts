@@ -1,109 +1,13 @@
 import { NextResponse } from "next/server"
 import { sql, type ExcelRow } from "@/lib/db"
 import * as XLSX from "xlsx"
-
-// Ensure upload_batches table exists
-async function ensureTable() {
-  await sql`
-    CREATE TABLE IF NOT EXISTS upload_batches (
-      id SERIAL PRIMARY KEY,
-      filename VARCHAR(255) NOT NULL,
-      uploaded_by VARCHAR(100),
-      uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      total_rows INTEGER DEFAULT 0,
-      inserted_rows INTEGER DEFAULT 0,
-      duplicate_rows INTEGER DEFAULT 0,
-      error_rows INTEGER DEFAULT 0,
-      status VARCHAR(50) DEFAULT 'processing'
-    );
-  `
-}
-
-// Parse date from Excel - handles multiple formats
-function parseDate(value: string | Date | number | undefined): string | null {
-  if (!value) return null
-
-  if (value instanceof Date) {
-    return value.toISOString().split("T")[0]
-  }
-
-  if (typeof value === "number") {
-    // Excel serial date
-    const date = new Date((value - 25569) * 86400 * 1000)
-    return date.toISOString().split("T")[0]
-  }
-
-  if (typeof value === "string") {
-    // Clean whitespace
-    value = value.trim()
-    
-    // Try parsing DD/MM/YYYY format
-    const parts = value.split("/")
-    if (parts.length === 3) {
-      const [day, month, year] = parts
-      const date = new Date(`${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`)
-      if (!isNaN(date.getTime())) {
-        return date.toISOString().split("T")[0]
-      }
-    }
-    // Try other formats
-    const parsed = new Date(value)
-    if (!isNaN(parsed.getTime())) {
-      return parsed.toISOString().split("T")[0]
-    }
-  }
-
-  return null
-}
-
-// Expected columns for each company (normalized to lowercase, no spaces for comparison)
-const ORIFLAME_EXPECTED_COLUMNS = [
-  "destinatario", "número pedido", "código empresaria/o", "dirección",
-  "telefono", "ciudad", "departamento", "fecha ingreso a r&m",
-  "fecha de entrega", "fecha entrega promesa", "dias promesa",
-  "estado", "novedad", "novedad 2"
-]
-
-const NATURA_EXPECTED_COLUMNS = [
-  "transportadora", "fecha despacho", "pedido", "guia", "estado",
-  "fecha", "novedad", "pe", "cod cn", "nombre cn",
-  "departamento", "ciudad", "direccion", "telefono"
-]
-
-// Validate Excel structure matches expected columns for the company
-function validateExcelStructure(
-  headers: string[], 
-  empresa: string
-): { valid: boolean; error?: string; detectedHeaders: string[] } {
-  const normalizedHeaders = headers.map(h => h.trim().toLowerCase())
-  const detectedHeaders = headers.map(h => h.trim())
-  
-  const expectedColumns = empresa.toLowerCase() === "oriflame" 
-    ? ORIFLAME_EXPECTED_COLUMNS 
-    : NATURA_EXPECTED_COLUMNS
-  
-  // Check for minimum required columns (at least 50% match)
-  const matchCount = expectedColumns.filter(expected => 
-    normalizedHeaders.some(h => h.includes(expected) || expected.includes(h))
-  ).length
-  
-  const matchPercentage = matchCount / expectedColumns.length
-  
-  if (matchPercentage < 0.5) {
-    const empresaName = empresa.toLowerCase() === "oriflame" ? "ORIFLAME" : "NATURA"
-    return {
-      valid: false,
-      error: `El archivo no corresponde a ${empresaName}. La estructura de columnas no coincide. Se esperaban columnas como: ${expectedColumns.slice(0, 5).join(", ")}...`,
-      detectedHeaders
-    }
-  }
-  
-  return { valid: true, detectedHeaders }
-}
+import { ensureTables } from "@/lib/db-schema"
+import { validateExcelStructure, mapRemesasRow, mapOriflameRow, mapOffcorsRow } from "@/lib/upload-utils"
 
 export async function GET() {
   try {
-    await ensureTable()
+    // Only need upload_batches here really, but good to be safe
+    await ensureTables()
     
     const history = await sql`
       SELECT * FROM upload_batches 
@@ -120,7 +24,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    await ensureTable()
+    await ensureTables()
     
     const formData = await request.formData()
     const file = formData.get("file") as File
@@ -167,6 +71,7 @@ export async function POST(request: Request) {
       const errors: string[] = []
       
       const cliente = (formData.get("cliente")?.toString() || "Natura").trim()
+      const clienteLower = cliente.toLowerCase()
       console.log(`Processing upload for client: '${cliente}'`)
 
       // Validate Excel structure matches expected format for the company
@@ -194,84 +99,6 @@ export async function POST(request: Request) {
         }, { status: 400 })
       }
 
-    // Helper functions for mapping
-    const mapRemesasRow = (row: any) => {
-       // Normalize header keys
-        const normalizedRow: Record<string, any> = {}
-        Object.keys(row).forEach(key => {
-          const cleanKey = key.trim().toLowerCase().replace(/\s+/g, '')
-          normalizedRow[cleanKey] = row[key]
-          if (!normalizedRow[key]) normalizedRow[key] = row[key]
-        })
-
-        const getValue = (...keys: string[]) => {
-          for (const key of keys) {
-            const cleanKey = key.toLowerCase().replace(/\s+/g, '')
-            if (normalizedRow[cleanKey] !== undefined) return normalizedRow[cleanKey]
-          }
-          return undefined
-        }
-
-        return {
-          transportadora: getValue("transportadora", "transp", "empresa")?.toString() || null,
-          fecha_despacho: parseDate(getValue("fecha despacho", "fechadespacho", "f.despacho", "fecha")),
-          pedido: getValue("pedido", "no. pedido", "numero pedido")?.toString() || "",
-          guia: getValue("guia", "no. guia", "numero guia")?.toString() || "",
-          estado: getValue("estado", "status", "situacion")?.toString() || "",
-          fecha: parseDate(getValue("fecha", "fecha estado", "fecha status")),
-          novedad: getValue("novedad", "observacion", "notas")?.toString() || null,
-          pe: getValue("pe", "planificado", "entrega planificada")?.toString() || null,
-          cod_cn: getValue("cod cn", "codigo cn", "cod. cn")?.toString() || null,
-          nombre_cn: getValue("nombre cn", "nombre cliente", "cliente")?.toString() || null,
-          departamento: getValue("departamento", "depto", "estado/provincia")?.toString() || null,
-          ciudad: getValue("ciudad", "municipio")?.toString() || null,
-          direccion: getValue("direccion", "dir", "domicilio")?.toString() || null,
-          telefono: getValue("telefono", "celular", "tel")?.toString() || null,
-        }
-    }
-
-    const mapOriflameRow = (row: any) => {
-        // Normalize header keys
-        const normalizedRow: Record<string, any> = {}
-        Object.keys(row).forEach(key => {
-          const cleanKey = key.trim().toLowerCase().replace(/\s+/g, '')
-          normalizedRow[cleanKey] = row[key]
-          // Also keep original key for fallback
-          const originalKey = key.trim().toLowerCase()
-          if (!normalizedRow[originalKey]) normalizedRow[originalKey] = row[key]
-        })
-
-        const getValue = (...keys: string[]) => {
-          for (const key of keys) {
-            const cleanKey = key.toLowerCase().replace(/\s+/g, '')
-            if (normalizedRow[cleanKey] !== undefined) return normalizedRow[cleanKey]
-          }
-          return undefined
-        }
-
-        // Parse dias_promesa as integer
-        const diasPromesaRaw = getValue("dias promesa", "diaspromesa", "promesa")
-        const diasPromesa = diasPromesaRaw ? parseInt(diasPromesaRaw.toString(), 10) : null
-
-        return {
-          guia: getValue("guia", "guía", "track id")?.toString()?.trim() || null,
-          destinatario: getValue("destinatario", "nombre", "recipient")?.toString()?.trim() || null,
-          numero_pedido: getValue("número pedido", "numero pedido", "numeropedido", "pedido")?.toString()?.trim() || "",
-          codigo_empresaria: getValue("código empresaria/o", "codigo empresaria/o", "codigoempresaria/o", "codigo empresario")?.toString()?.trim() || null,
-          direccion: getValue("dirección", "direccion", "address")?.toString()?.trim() || null,
-          telefono: getValue("telefono", "teléfono", "phone")?.toString()?.trim() || null,
-          ciudad: getValue("ciudad", "city")?.toString()?.trim() || null,
-          departamento: getValue("departamento", "department")?.toString()?.trim() || null,
-          fecha_ingreso: parseDate(getValue("fecha ingreso a r&m", "fechaingresoar&m", "fecha ingreso a ram", "fecha ingreso")),
-          fecha_entrega: parseDate(getValue("fecha de entrega", "fechadeentrega", "fecha entrega")),
-          fecha_promesa: parseDate(getValue("fecha entrega promesa", "fechaentregapromesa", "fecha promesa")),
-          dias_promesa: isNaN(diasPromesa as number) ? null : diasPromesa,
-          estado: getValue("estado", "status")?.toString()?.trim() || "PENDIENTE",
-          novedad: getValue("novedad", "novedad 1", "observacion")?.toString()?.trim() || null,
-          novedad2: getValue("novedad 2", "novedad2", "segunda novedad")?.toString()?.trim() || null,
-        }
-    }
-      
       // Process in chunks to avoid timeouts and memory issues
       const CHUNK_SIZE = 500
       
@@ -286,29 +113,38 @@ export async function POST(request: Request) {
         // Prepare chunk data
         for (let j = 0; j < chunk.length; j++) {
           const row = chunk[j]
-          const originalIndex = j // originalIndex is relative to the chunk, not the whole file
+          const originalIndex = j // relative to chunk
           
           try {
             let mappedRow: any
-            if (cliente.toLowerCase() === "oriflame") {
+            if (clienteLower === "oriflame") {
               mappedRow = mapOriflameRow(row)
+            } else if (clienteLower === "offcors") {
+              mappedRow = mapOffcorsRow(row)
             } else {
               mappedRow = mapRemesasRow(row)
             }
 
             // Check for required fields (different for each client)
-            if (cliente.toLowerCase() === "oriflame") {
+            if (clienteLower === "oriflame") {
               // ORIFLAME uses numero_pedido
               if (!(mappedRow as any).numero_pedido && !(mappedRow as any).guia) {
                 errorRows++
-                errors.push(`Fila ${originalIndex + 2}: Número Pedido y Guía están vacíos`)
+                errors.push(`Fila en bloque: Número Pedido y Guía están vacíos`)
+                continue
+              }
+            } else if (clienteLower === "offcors") {
+              // Offcors uses numero_guia_rym or no_guia_hermeco
+              if (!mappedRow.numero_guia_rym && !mappedRow.no_guia_hermeco) {
+                errorRows++
+                errors.push(`Fila en bloque: Guía RYM y Guía Hermeco están vacíos`)
                 continue
               }
             } else {
               // Natura uses pedido
               if (!mappedRow.pedido && !mappedRow.guia) {
                 errorRows++
-                errors.push(`Fila ${originalIndex + 2}: Pedido y Guía están vacíos`)
+                errors.push(`Fila en bloque: Pedido y Guía están vacíos`)
                 continue
               }
             }
@@ -322,7 +158,7 @@ export async function POST(request: Request) {
             
           } catch (err) {
             errorRows++
-            errors.push(`Fila ${originalIndex + 2}: Error procesando datos`)
+            errors.push(`Error procesando fila en bloque`)
           }
         }
         
@@ -333,84 +169,52 @@ export async function POST(request: Request) {
             const jsonState = JSON.stringify(valuesToInsert)
             
             let resultRows = []
-            if (cliente.toLowerCase() === "natura" || cliente.toLowerCase() === "remesas y mensajes") {
-              // Natura -> natura_shipments (No novedad2)
+            if (clienteLower === "natura" || clienteLower === "remesas y mensajes") {
+              // Natura -> natura_shipments
               resultRows = await sql`
                 INSERT INTO natura_shipments (
-                  transportadora,
-                  fecha_despacho,
-                  pedido,
-                  guia,
-                  estado,
-                  fecha,
-                  novedad,
-                  pe,
-                  cod_cn,
-                  nombre_cn,
-                  departamento,
-                  ciudad,
-                  direccion,
-                  telefono,
-                  cliente
+                  transportadora, fecha_despacho, pedido, guia, estado, fecha, novedad, 
+                  pe, cod_cn, nombre_cn, departamento, ciudad, direccion, telefono, cliente
                 )
                 SELECT 
-                  transportadora,
-                  fecha_despacho,
-                  pedido,
-                  guia,
-                  estado,
-                  fecha,
-                  novedad,
-                  pe,
-                  cod_cn,
-                  nombre_cn,
-                  departamento,
-                  ciudad,
-                  direccion,
-                  telefono,
-                  cliente
+                  transportadora, fecha_despacho, pedido, guia, estado, fecha, novedad, 
+                  pe, cod_cn, nombre_cn, departamento, ciudad, direccion, telefono, cliente
                 FROM json_populate_recordset(null::natura_shipments, ${jsonState}::json)
                 ON CONFLICT (pedido, guia) DO NOTHING
                 RETURNING id
               `
-            } else {
-               // Oriflame -> oriflame_shipments (dedicated table with exact Excel structure)
+            } else if (clienteLower === "offcors") {
+               // Offcors -> offcors_shipments
                resultRows = await sql`
-                INSERT INTO oriflame_shipments (
-                  guia,
-                  destinatario,
-                  numero_pedido,
-                  codigo_empresaria,
-                  direccion,
-                  telefono,
-                  ciudad,
-                  departamento,
-                  fecha_ingreso,
-                  fecha_entrega,
-                  fecha_promesa,
-                  dias_promesa,
-                  estado,
-                  novedad,
-                  novedad2,
-                  cliente
+                INSERT INTO offcors_shipments (
+                  fecha, no_cierre_despacho, no_guia_hermeco, destinatario, direccion, 
+                  telefono, ciudad, departamento, nro_entrega, cedula_cliente, 
+                  unidad_embalaje, canal, tipo_embalaje, novedad_despacho, 
+                  fecha_despacho, numero_guia_rym, fecha_entrega, estado, 
+                  guia_subida_rym, novedad_entrega, novedad_1, novedad_2, cliente
                 )
                 SELECT 
-                  guia,
-                  destinatario,
-                  numero_pedido,
-                  codigo_empresaria,
-                  direccion,
-                  telefono,
-                  ciudad,
-                  departamento,
-                  fecha_ingreso,
-                  fecha_entrega,
-                  fecha_promesa,
-                  dias_promesa,
-                  estado,
-                  novedad,
-                  novedad2,
-                  cliente
+                  fecha, no_cierre_despacho, no_guia_hermeco, destinatario, direccion, 
+                  telefono, ciudad, departamento, nro_entrega, cedula_cliente, 
+                  unidad_embalaje, canal, tipo_embalaje, novedad_despacho, 
+                  fecha_despacho, numero_guia_rym, fecha_entrega, estado, 
+                  guia_subida_rym, novedad_entrega, novedad_1, novedad_2, cliente
+                FROM json_populate_recordset(null::offcors_shipments, ${jsonState}::json)
+                ON CONFLICT (numero_guia_rym, nro_entrega) DO NOTHING
+                RETURNING id
+              `
+            } else {
+               // Oriflame -> oriflame_shipments
+               resultRows = await sql`
+                INSERT INTO oriflame_shipments (
+                  guia, destinatario, numero_pedido, codigo_empresaria, direccion, 
+                  telefono, ciudad, departamento, fecha_ingreso, fecha_entrega, 
+                  fecha_promesa, dias_promesa, estado, novedad, novedad2, cliente
+                )
+                SELECT 
+                  guia, destinatario, numero_pedido, codigo_empresaria, direccion, 
+                  telefono, ciudad, departamento, fecha_ingreso, fecha_entrega, 
+                  fecha_promesa, dias_promesa, estado, novedad, novedad2, cliente
                 FROM json_populate_recordset(null::oriflame_shipments, ${jsonState}::json)
                 ON CONFLICT (numero_pedido, guia) DO NOTHING
                 RETURNING id
@@ -451,7 +255,7 @@ export async function POST(request: Request) {
           duplicateRows,
           errorRows,
           errors: errors.slice(0, 10),
-          detectedHeaders: rows.length > 0 ? Object.keys(rows[0]).slice(0, 20) : [], // Return first 20 headers for debug
+          detectedHeaders: rows.length > 0 ? Object.keys(rows[0]).slice(0, 20) : [], 
         },
       })
 

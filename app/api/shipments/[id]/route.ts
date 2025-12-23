@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { sql } from "@/lib/db"
 
 // Helper function to determine which table a record belongs to
-async function findRecordTable(id: string): Promise<{ table: 'natura' | 'oriflame' | null; record: any }> {
+async function findRecordTable(id: string): Promise<{ table: 'natura' | 'oriflame' | 'offcors' | null; record: any }> {
   // Try natura_shipments first
   const naturaResult = await sql`SELECT *, 'natura' as source_table FROM natura_shipments WHERE id = ${id}`
   if (naturaResult.length > 0) {
@@ -13,6 +13,12 @@ async function findRecordTable(id: string): Promise<{ table: 'natura' | 'oriflam
   const oriflameResult = await sql`SELECT *, 'oriflame' as source_table FROM oriflame_shipments WHERE id = ${id}`
   if (oriflameResult.length > 0) {
     return { table: 'oriflame', record: oriflameResult[0] }
+  }
+
+  // Try offcors_shipments
+  const offcorsResult = await sql`SELECT *, 'offcors' as source_table FROM offcors_shipments WHERE id = ${id}`
+  if (offcorsResult.length > 0) {
+    return { table: 'offcors', record: offcorsResult[0] }
   }
   
   return { table: null, record: null }
@@ -91,6 +97,36 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         WHERE id = ${id}
         RETURNING *
       `
+    } else if (table === 'offcors') {
+      result = await sql`
+        UPDATE offcors_shipments
+        SET
+          fecha = ${body.fecha !== undefined ? body.fecha : current.fecha},
+          no_cierre_despacho = ${body.no_cierre_despacho !== undefined ? body.no_cierre_despacho : current.no_cierre_despacho},
+          no_guia_hermeco = ${body.no_guia_hermeco !== undefined ? body.no_guia_hermeco : current.no_guia_hermeco},
+          destinatario = ${body.destinatario !== undefined ? body.destinatario : current.destinatario},
+          direccion = ${body.direccion !== undefined ? body.direccion : current.direccion},
+          telefono = ${body.telefono !== undefined ? body.telefono : current.telefono},
+          ciudad = ${body.ciudad !== undefined ? body.ciudad : current.ciudad},
+          departamento = ${body.departamento !== undefined ? body.departamento : current.departamento},
+          nro_entrega = ${body.nro_entrega !== undefined ? body.nro_entrega : current.nro_entrega},
+          cedula_cliente = ${body.cedula_cliente !== undefined ? body.cedula_cliente : current.cedula_cliente},
+          unidad_embalaje = ${body.unidad_embalaje !== undefined ? body.unidad_embalaje : current.unidad_embalaje},
+          canal = ${body.canal !== undefined ? body.canal : current.canal},
+          tipo_embalaje = ${body.tipo_embalaje !== undefined ? body.tipo_embalaje : current.tipo_embalaje},
+          novedad_despacho = ${body.novedad_despacho !== undefined ? body.novedad_despacho : current.novedad_despacho},
+          fecha_despacho = ${body.fecha_despacho !== undefined ? body.fecha_despacho : current.fecha_despacho},
+          numero_guia_rym = ${body.numero_guia_rym !== undefined ? body.numero_guia_rym : current.numero_guia_rym},
+          fecha_entrega = ${body.fecha_entrega !== undefined ? body.fecha_entrega : current.fecha_entrega},
+          estado = ${body.estado !== undefined ? body.estado : current.estado},
+          guia_subida_rym = ${body.guia_subida_rym !== undefined ? body.guia_subida_rym : current.guia_subida_rym},
+          novedad_entrega = ${body.novedad_entrega !== undefined ? body.novedad_entrega : current.novedad_entrega},
+          novedad_1 = ${body.novedad_1 !== undefined ? body.novedad_1 : current.novedad_1},
+          novedad_2 = ${body.novedad_2 !== undefined ? body.novedad_2 : current.novedad_2},
+          updated_at = CURRENT_TIMESTAMP
+        WHERE id = ${id}
+        RETURNING *
+      `
     } else {
       return NextResponse.json({ error: "Tabla no identificada" }, { status: 500 })
     }
@@ -116,6 +152,8 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
       result = await sql`DELETE FROM natura_shipments WHERE id = ${id} RETURNING *`
     } else if (table === 'oriflame') {
       result = await sql`DELETE FROM oriflame_shipments WHERE id = ${id} RETURNING *`
+    } else if (table === 'offcors') {
+      result = await sql`DELETE FROM offcors_shipments WHERE id = ${id} RETURNING *`
     }
 
     return NextResponse.json({ success: true })
