@@ -2,20 +2,17 @@
 
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Download, FileText, Filter, Edit, Search, ChevronLeft, ChevronRight, CheckSquare } from "lucide-react"
+import { Download, Filter, Search, ChevronLeft, ChevronRight, CheckSquare, XCircle } from "lucide-react"
 import { useState, useMemo } from "react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
-import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { CheckCircle2, XCircle } from "lucide-react"
-import * as XLSX from "xlsx"
 
-interface DataTableProps {
-  shipments: any[]
-}
+import { exportToExcel } from "@/lib/excel-export"
+import { NaturaHeaders, NaturaRow, naturaExportColumns } from "./data-table/companies/natura"
+import { OriflameHeaders, OriflameRow, oriflameExportColumns } from "./data-table/companies/oriflame"
+import { OffcorsHeaders, OffcorsRow, offcorsExportColumns } from "./data-table/companies/offcors"
 
 // Map estado values to badge colors
 function getEstadoBadge(estado: string | null) {
@@ -37,12 +34,28 @@ function getEstadoBadge(estado: string | null) {
 
 const ITEMS_PER_PAGE = 20
 
+interface DataTableProps {
+  shipments: any[]
+}
+
 export function DataTable({ shipments }: DataTableProps) {
   const [transportadoraFilter, setTransportadoraFilter] = useState("Natura")
   const [estadoFilter, setEstadoFilter] = useState("Todos")
   const [searchQuery, setSearchQuery] = useState("")
   const [currentPage, setCurrentPage] = useState(1)
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
+
+  // Select Strategy based on filter
+  const strategy = useMemo(() => {
+    if (transportadoraFilter === "Oriflame") {
+        return { Headers: OriflameHeaders, Row: OriflameRow, exportCols: oriflameExportColumns }
+    }
+    if (transportadoraFilter === "Offcors") {
+        return { Headers: OffcorsHeaders, Row: OffcorsRow, exportCols: offcorsExportColumns }
+    }
+    // Default / Natura
+    return { Headers: NaturaHeaders, Row: NaturaRow, exportCols: naturaExportColumns }
+  }, [transportadoraFilter])
 
   const toggleAll = (checked: boolean) => {
     if (checked) {
@@ -171,113 +184,9 @@ export function DataTable({ shipments }: DataTableProps) {
     }
   }
 
-  // Determine if Novedad 2 column should be shown (Only hidden for Natura)
-  const showNovedad2 = transportadoraFilter !== "Natura" && transportadoraFilter !== "REMESAS Y MENSAJES"
-
   const handleExportExcel = () => {
-    // Define headers and mapping based on selected company
-    let headers: string[] = []
-    let dataToExport: any[] = []
-    
-    // Helper to format date consistent with import expectations
-    const fmtDate = (dateVal: any) => {
-        if (!dateVal) return "";
-        return new Date(dateVal).toLocaleDateString("es-CO");
-    }
-
-    if (transportadoraFilter === "Oriflame") {
-      headers = [
-        "GUÍA", "DESTINATARIO", "NÚMERO PEDIDO", "CÓDIGO EMPRESARIA/O", 
-        "DIRECCIÓN", "TELÉFONO", "CIUDAD", "DEPARTAMENTO", 
-        "FECHA INGRESO A R&M", "FECHA DE ENTREGA", "FECHA ENTREGA PROMESA", 
-        "DÍAS PROMESA", "ESTADO", "NOVEDAD", "NOVEDAD 2"
-      ]
-      
-      dataToExport = filteredShipments.map(s => ({
-        "GUÍA": s.guia,
-        "DESTINATARIO": s.destinatario || s.nombre_cn,
-        "NÚMERO PEDIDO": s.numero_pedido || s.pedido,
-        "CÓDIGO EMPRESARIA/O": s.codigo_empresaria || s.cod_cn,
-        "DIRECCIÓN": s.direccion,
-        "TELÉFONO": s.telefono,
-        "CIUDAD": s.ciudad,
-        "DEPARTAMENTO": s.departamento,
-        "FECHA INGRESO A R&M": fmtDate(s.fecha_ingreso || s.fecha_despacho),
-        "FECHA DE ENTREGA": fmtDate(s.fecha_entrega || s.fecha),
-        "FECHA ENTREGA PROMESA": fmtDate(s.fecha_promesa),
-        "DÍAS PROMESA": s.dias_promesa || s.pe,
-        "ESTADO": s.estado,
-        "NOVEDAD": s.novedad,
-        "NOVEDAD 2": s.novedad2
-      }))
-    } else if (transportadoraFilter === "Offcors") {
-      headers = [
-        "FECHA", "NO. CIERRE DESPACHO", "NO. GUIA HERMECO", "DESTINATARIO",
-        "DIRECCIÓN", "TELÉFONO", "CIUDAD", "DEPARTAMENTO", "NRO. ENTREGA",
-        "CEDULA CLIENTE", "UNIDAD EMBALAJE", "CANAL", "TIPO EMBALAJE", 
-        "NOVEDAD DESPACHO", "FECHA DESPACHO", "NUMERO GUIA RYM", 
-        "FECHA ENTREGA", "ESTADO", "GUIA SUBIDA RYM", 
-        "NOVEDAD ENTREGA", "NOVEDAD 1", "NOVEDAD 2"
-      ]
-
-      dataToExport = filteredShipments.map(s => ({
-        "FECHA": fmtDate(s.fecha),
-        "NO. CIERRE DESPACHO": s.no_cierre_despacho,
-        "NO. GUIA HERMECO": s.no_guia_hermeco || s.pedido, // Fallback if mixed
-        "DESTINATARIO": s.destinatario || s.nombre_cn,
-        "DIRECCIÓN": s.direccion,
-        "TELÉFONO": s.telefono,
-        "CIUDAD": s.ciudad,
-        "DEPARTAMENTO": s.departamento,
-        "NRO. ENTREGA": s.nro_entrega,
-        "CEDULA CLIENTE": s.cedula_cliente || s.cod_cn,
-        "UNIDAD EMBALAJE": s.unidad_embalaje,
-        "CANAL": s.canal,
-        "TIPO EMBALAJE": s.tipo_embalaje,
-        "NOVEDAD DESPACHO": s.novedad_despacho,
-        "FECHA DESPACHO": fmtDate(s.fecha_despacho),
-        "NUMERO GUIA RYM": s.numero_guia_rym || s.guia,
-        "FECHA ENTREGA": fmtDate(s.fecha_entrega),
-        "ESTADO": s.estado,
-        "GUIA SUBIDA RYM": s.guia_subida_rym,
-        "NOVEDAD ENTREGA": s.novedad_entrega,
-        "NOVEDAD 1": s.novedad_1 || s.novedad,
-        "NOVEDAD 2": s.novedad_2 || s.novedad2
-      }))
-    } else {
-      // Natura / Default
-      headers = [
-        "Transportadora", "Fecha despacho", "Pedido", "Guia", "Estado", 
-        "Fecha", "Novedad", "PE", "Cod Cn", "Nombre Cn", 
-        "Departamento", "Ciudad", "Direccion", "Telefono"
-      ]
-
-      dataToExport = filteredShipments.map(s => ({
-        "Transportadora": s.transportadora,
-        "Fecha despacho": fmtDate(s.fecha_despacho),
-        "Pedido": s.pedido,
-        "Guia": s.guia,
-        "Estado": s.estado,
-        "Fecha": fmtDate(s.fecha),
-        "Novedad": s.novedad,
-        "PE": s.pe,
-        "Cod Cn": s.cod_cn,
-        "Nombre Cn": s.nombre_cn,
-        "Departamento": s.departamento,
-        "Ciudad": s.ciudad,
-        "Direccion": s.direccion,
-        "Telefono": s.telefono
-      }))
-    }
-
-    // Generate worksheet
-    const worksheet = XLSX.utils.json_to_sheet(dataToExport, { header: headers })
-    const workbook = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Trazabilidad")
-    
-    // Save file
     const fileName = `Trazabilidad_${transportadoraFilter}_${new Date().toISOString().split('T')[0]}.xlsx`
-    XLSX.writeFile(workbook, fileName)
+    exportToExcel(fileName, filteredShipments, strategy.exportCols)
   }
 
   return (
@@ -388,73 +297,7 @@ export function DataTable({ shipments }: DataTableProps) {
                   onCheckedChange={toggleAll}
                 />
               </th>
-              {transportadoraFilter === "Oriflame" ? (
-                /* ORIFLAME Column Headers - matching Excel structure */
-                <>
-                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">Guía</th>
-                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">Destinatario</th>
-                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">Número Pedido</th>
-                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">Código Empresaria/o</th>
-                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">Dirección</th>
-                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">Teléfono</th>
-                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">Ciudad</th>
-                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">Departamento</th>
-                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">Fecha Ingreso R&M</th>
-                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">Fecha Entrega</th>
-                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">Fecha Promesa</th>
-                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">Días Promesa</th>
-                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">Estado</th>
-                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">Novedad</th>
-                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">Novedad 2</th>
-                  <th className="text-left py-3 px-2 font-medium text-muted-foreground sticky right-0 bg-muted z-10 shadow-[-5px_0px_10px_-5px_rgba(0,0,0,0.1)]">Acciones</th>
-                </>
-              ) : transportadoraFilter === "Offcors" ? (
-                /* OFFCORS Column Headers */
-                <>
-                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">Fecha</th>
-                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">No. Cierre</th>
-                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">No. Guía Hermeco</th>
-                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">Destinatario</th>
-                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">Dirección</th>
-                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">Teléfono</th>
-                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">Ciudad</th>
-                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">Depto</th>
-                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">Nro. Entrega</th>
-                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">Cedula Cliente</th>
-                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">Unidades</th>
-                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">Canal</th>
-                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">Embalaje</th>
-                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">Novedad Despacho</th>
-                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">Fecha Despacho</th>
-                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">Guía RYM</th>
-                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">Fecha Entrega</th>
-                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">Estado</th>
-                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">Guía Subida RYM</th>
-                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">Novedad Entrega</th>
-                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">Novedad 1</th>
-                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">Novedad 2</th>
-                  <th className="text-left py-3 px-2 font-medium text-muted-foreground sticky right-0 bg-muted z-10 shadow-[-5px_0px_10px_-5px_rgba(0,0,0,0.1)]">Acciones</th>
-                </>
-              ) : (
-                /* NATURA Column Headers */
-                <>
-                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">Transportadora</th>
-                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">Fecha Despacho</th>
-                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">Pedido</th>
-                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">Guía</th>
-                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">Estado</th>
-                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">Fecha</th>
-                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">Novedad</th>
-                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">PE</th>
-                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">Cod Cn</th>
-                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">Nombre Cn</th>
-                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">Departamento</th>
-                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">Ciudad</th>
-                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">Dirección</th>
-                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">Teléfono</th>
-                  <th className="text-left py-3 px-2 font-medium text-muted-foreground sticky right-0 bg-muted z-10 shadow-[-5px_0px_10px_-5px_rgba(0,0,0,0.1)]">Acciones</th>
-                </>
-              )}
+              {strategy && <strategy.Headers />}
             </tr>
           </thead>
           <tbody>
@@ -465,99 +308,15 @@ export function DataTable({ shipments }: DataTableProps) {
                 </td>
               </tr>
             ) : (
-              paginatedShipments.map((shipment) => {
-                const estadoBadge = getEstadoBadge(shipment.estado)
-                const formatDate = (date: string | null) => 
-                  date ? new Date(date).toLocaleDateString("es-CO") : "-"
-
-                return (
-                  <tr key={shipment.id} className={`border-b hover:bg-muted/50 transition-colors group ${selectedIds.has(shipment.id) ? 'bg-blue-50/50' : ''}`}>
-                    <td className="py-3 px-2">
-                      <Checkbox 
-                        checked={selectedIds.has(shipment.id)} 
-                        onCheckedChange={() => toggleOne(shipment.id)}
-                      />
-                    </td>
-                    {transportadoraFilter === "Oriflame" ? (
-                      /* ORIFLAME Row Data - matching Excel structure */
-                      <>
-                        <td className="py-3 px-2 font-mono text-xs">{shipment.guia || "-"}</td>
-                        <td className="py-3 px-2 max-w-[120px] truncate text-xs" title={shipment.destinatario || shipment.nombre_cn || ""}>{shipment.destinatario || shipment.nombre_cn || "-"}</td>
-                        <td className="py-3 px-2 font-mono text-xs">{shipment.numero_pedido || shipment.pedido || "-"}</td>
-                        <td className="py-3 px-2 font-mono text-xs">{shipment.codigo_empresaria || shipment.cod_cn || "-"}</td>
-                        <td className="py-3 px-2 max-w-[100px] truncate text-xs" title={shipment.direccion || ""}>{shipment.direccion || "-"}</td>
-                        <td className="py-3 px-2 text-xs">{shipment.telefono || "-"}</td>
-                        <td className="py-3 px-2 text-xs">{shipment.ciudad || "-"}</td>
-                        <td className="py-3 px-2 text-xs">{shipment.departamento || "-"}</td>
-                        <td className="py-3 px-2 text-xs">{formatDate(shipment.fecha_ingreso || shipment.fecha_despacho)}</td>
-                        <td className="py-3 px-2 text-xs">{formatDate(shipment.fecha_entrega || shipment.fecha)}</td>
-                        <td className="py-3 px-2 text-xs">{formatDate(shipment.fecha_promesa)}</td>
-                        <td className="py-3 px-2 text-xs">{shipment.dias_promesa || shipment.pe || "-"}</td>
-                        <td className="py-3 px-2">
-                          <Badge className={`${estadoBadge.color} border-0 text-xs`}>{estadoBadge.label}</Badge>
-                        </td>
-                        <td className="py-3 px-2 max-w-[100px] truncate text-xs" title={shipment.novedad || ""}>{shipment.novedad || "-"}</td>
-                        <td className="py-3 px-2 max-w-[100px] truncate text-xs" title={shipment.novedad2 || ""}>{shipment.novedad2 || "-"}</td>
-                      </>
-                    ) : transportadoraFilter === "Offcors" ? (
-                      /* OFFCORS Row Data */
-                      <>
-                        <td className="py-3 px-2 text-xs">{formatDate(shipment.fecha)}</td>
-                        <td className="py-3 px-2 text-xs">{shipment.no_cierre_despacho || "-"}</td>
-                        <td className="py-3 px-2 font-mono text-xs">{shipment.pedido || "-"}</td>
-                        <td className="py-3 px-2 max-w-[120px] truncate text-xs" title={shipment.nombre_cn || ""}>{shipment.nombre_cn || "-"}</td>
-                        <td className="py-3 px-2 max-w-[100px] truncate text-xs" title={shipment.direccion || ""}>{shipment.direccion || "-"}</td>
-                        <td className="py-3 px-2 text-xs">{shipment.telefono || "-"}</td>
-                        <td className="py-3 px-2 text-xs">{shipment.ciudad || "-"}</td>
-                        <td className="py-3 px-2 text-xs">{shipment.departamento || "-"}</td>
-                        <td className="py-3 px-2 text-xs">{shipment.nro_entrega || "-"}</td>
-                        <td className="py-3 px-2 text-xs">{shipment.cod_cn || "-"}</td>
-                        <td className="py-3 px-2 text-xs">{shipment.unidad_embalaje || "-"}</td>
-                        <td className="py-3 px-2 text-xs">{shipment.pe || "-"}</td>
-                        <td className="py-3 px-2 text-xs">{shipment.tipo_embalaje || "-"}</td>
-                        <td className="py-3 px-2 max-w-[100px] truncate text-xs" title={shipment.novedad || ""}>{shipment.novedad || "-"}</td>
-                        <td className="py-3 px-2 text-xs">{formatDate(shipment.fecha_despacho)}</td>
-                        <td className="py-3 px-2 font-mono text-xs">{shipment.guia || "-"}</td>
-                        <td className="py-3 px-2 text-xs">{formatDate(shipment.fecha_entrega)}</td>
-                        <td className="py-3 px-2">
-                          <Badge className={`${estadoBadge.color} border-0 text-xs`}>{estadoBadge.label}</Badge>
-                        </td>
-                        <td className="py-3 px-2 text-xs">{shipment.guia_subida_rym || "-"}</td>
-                        <td className="py-3 px-2 max-w-[100px] truncate text-xs" title={shipment.novedad_entrega || ""}>{shipment.novedad_entrega || "-"}</td>
-                        <td className="py-3 px-2 max-w-[100px] truncate text-xs" title={shipment.novedad_1 || ""}>{shipment.novedad_1 || "-"}</td>
-                        <td className="py-3 px-2 max-w-[100px] truncate text-xs" title={shipment.novedad_2 || ""}>{shipment.novedad_2 || "-"}</td>
-                      </>
-                    ) : (
-                      /* NATURA Row Data */
-                      <>
-                        <td className="py-3 px-2 text-xs">{shipment.transportadora || "-"}</td>
-                        <td className="py-3 px-2 text-xs">{formatDate(shipment.fecha_despacho)}</td>
-                        <td className="py-3 px-2 font-mono text-xs">{shipment.pedido || "-"}</td>
-                        <td className="py-3 px-2 font-mono text-xs">{shipment.guia || "-"}</td>
-                        <td className="py-3 px-2">
-                          <Badge className={`${estadoBadge.color} border-0 text-xs`}>{estadoBadge.label}</Badge>
-                        </td>
-                        <td className="py-3 px-2 text-xs">{formatDate(shipment.fecha)}</td>
-                        <td className="py-3 px-2 max-w-[100px] truncate text-xs" title={shipment.novedad || ""}>{shipment.novedad || "-"}</td>
-                        <td className="py-3 px-2 text-xs">{shipment.pe || "-"}</td>
-                        <td className="py-3 px-2 font-mono text-xs">{shipment.cod_cn || "-"}</td>
-                        <td className="py-3 px-2 max-w-[120px] truncate text-xs" title={shipment.nombre_cn || ""}>{shipment.nombre_cn || "-"}</td>
-                        <td className="py-3 px-2 text-xs">{shipment.departamento || "-"}</td>
-                        <td className="py-3 px-2 text-xs">{shipment.ciudad || "-"}</td>
-                        <td className="py-3 px-2 max-w-[100px] truncate text-xs" title={shipment.direccion || ""}>{shipment.direccion || "-"}</td>
-                        <td className="py-3 px-2 text-xs">{shipment.telefono || "-"}</td>
-                      </>
-                    )}
-                    <td className="py-3 px-2 sticky right-0 bg-background group-hover:bg-muted transition-colors z-10 shadow-[-5px_0px_10px_-5px_rgba(0,0,0,0.1)]">
-                      <Link href={`/edit/${shipment.id}`}>
-                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                      </Link>
-                    </td>
-                  </tr>
-                )
-              })
+              paginatedShipments.map((shipment) => (
+                <strategy.Row
+                  key={shipment.id}
+                  shipment={shipment}
+                  isSelected={selectedIds.has(shipment.id)}
+                  onToggle={() => toggleOne(shipment.id)}
+                  estadoBadge={getEstadoBadge(shipment.estado)}
+                />
+              ))
             )}
           </tbody>
         </table>
