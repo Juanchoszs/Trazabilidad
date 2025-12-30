@@ -187,21 +187,37 @@ export function DataTable({ shipments }: DataTableProps) {
   const handleExportExcel = () => {
     let dataToExport = filteredShipments
     
-    // Sort Oriflame by fecha_ingreso (oldest to newest from 2025)
+    // Apply specific sorting based on transportadora
     if (transportadoraFilter === "Oriflame") {
+      // Sort Oriflame by fecha_ingreso (oldest to newest)
       dataToExport = [...filteredShipments].sort((a, b) => {
         const dateA = new Date(a.fecha_ingreso || a.fecha_despacho || 0)
         const dateB = new Date(b.fecha_ingreso || b.fecha_despacho || 0)
         return dateA.getTime() - dateB.getTime() // Ascending (oldest first)
       })
+    } else if (transportadoraFilter === "Natura") {
+      // Sort Natura by fecha_despacho (oldest to newest)
+      dataToExport = [...filteredShipments].sort((a, b) => {
+        const dateA = new Date(a.fecha_despacho || 0)
+        const dateB = new Date(b.fecha_despacho || 0)
+        return dateA.getTime() - dateB.getTime() // Ascending (oldest first)
+      })
     }
     
     const fileName = `Trazabilidad_${transportadoraFilter}_${new Date().toISOString().split('T')[0]}.xlsx`
+    // Apply specific styles based on transportadora
+    let exportOptions
+    if (transportadoraFilter === "Oriflame") {
+      exportOptions = { applyOriflameStyles: true }
+    } else if (transportadoraFilter === "Natura") {
+      exportOptions = { applyNaturaStyles: true }
+    }
+    
     exportToExcel(
       fileName,
       dataToExport,
       strategy.exportCols,
-      transportadoraFilter === "Oriflame" ? { applyOriflameStyles: true } : undefined,
+      exportOptions,
     )
   }
 

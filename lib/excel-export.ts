@@ -9,6 +9,7 @@ export interface ExportColumn {
 
 interface ExcelExportOptions {
   applyOriflameStyles?: boolean
+  applyNaturaStyles?: boolean
 }
 
 export const exportToExcel = (
@@ -39,8 +40,10 @@ export const exportToExcel = (
   }))
   worksheet["!cols"] = defaultColWidths
 
-  // Apply base font (Calibri 8) to all cells when styles are requested (Oriflame)
-  if (options?.applyOriflameStyles && worksheet["!ref"]) {
+  // Apply specific styles for Oriflame or Natura if requested
+  if (worksheet["!ref"]) {
+    // Apply Oriflame styles if requested
+    if (options?.applyOriflameStyles) {
     const range = XLSX.utils.decode_range(worksheet["!ref"])
 
     // Apply specific column widths in pixels for A..O
@@ -112,10 +115,115 @@ export const exportToExcel = (
       }
     }
 
-    // Row height for header row (~40px)
-    const rows: any[] = worksheet["!rows"] || []
-    rows[headerRow] = { ...(rows[headerRow] || {}), hpx: 40 }
-    worksheet["!rows"] = rows
+      // Row height for header row (~40px)
+      const rows: any[] = worksheet["!rows"] || []
+      rows[headerRow] = { ...(rows[headerRow] || {}), hpx: 40 }
+      worksheet["!rows"] = rows
+    }
+    
+    // Apply Natura styles if requested
+    if (options?.applyNaturaStyles) {
+      const range = XLSX.utils.decode_range(worksheet["!ref"])
+      
+      // Set specific column widths in pixels for A..N
+      const naturaPx = [
+        100,  // A Transportadora
+        80,   // B Fecha despacho
+        80,   // C Fecha despacho
+        80,   // D Guia
+        80,   // E Estado
+        80,   // F Fecha
+        80,   // G Novedad
+        80,   // H PE
+        110,  // I Cod Cn
+        180,  // J Nombre Cn
+        80,   // K Departamento
+        80,   // L Ciudad
+        150,  // M Direccion
+        80,   // N Telefono
+      ]
+      
+      const cols: any[] = worksheet["!cols"] || []
+      for (let i = 0; i < naturaPx.length; i++) {
+        cols[i] = { ...(cols[i] || {}), wpx: naturaPx[i] }
+      }
+      worksheet["!cols"] = cols
+      
+      // Apply styles to all cells
+      for (let row = range.s.r; row <= range.e.r; row++) {
+        for (let col = range.s.c; col <= range.e.c; col++) {
+          const cellRef = XLSX.utils.encode_cell({ r: row, c: col })
+          const cell = worksheet[cellRef]
+          if (!cell) continue
+          
+          // Default cell style (Calibri 8, black text)
+          cell.s = {
+            ...(cell.s || {}),
+            font: {
+              name: "Calibri",
+              sz: 8,
+              color: { rgb: "FF000000" },
+            },
+          }
+          
+          // For header row (A1:N1) - white text on #00B0F0 background
+          if (row === range.s.r) {
+            cell.s = {
+              ...(cell.s || {}),
+              font: {
+                name: "Calibri",
+                sz: 8,
+                color: { rgb: "FFFFFFFF" }, // White text
+                bold: true,
+              },
+              fill: {
+                patternType: "solid",
+                fgColor: { rgb: "FF00B0F0" }, // #00B0F0 background
+              },
+              alignment: {
+                vertical: "center",
+                horizontal: "center",
+                wrapText: true,
+              },
+            }
+          }
+        }
+      }
+      
+      // Header row styles (A1:N1)
+      const headerRow = range.s.r
+      const totalHeaderCols = Math.min(columns.length, 14) // A-N (14 columns)
+      
+      for (let col = 0; col < totalHeaderCols; col++) {
+        const cellRef = XLSX.utils.encode_cell({ r: headerRow, c: col })
+        const cell = worksheet[cellRef]
+        if (!cell) continue
+        
+        cell.s = {
+          ...(cell.s || {}),
+          font: {
+            name: "Calibri",
+            sz: 8,
+            color: { rgb: "FFFFFFFF" }, // White text
+            bold: true,
+          },
+          fill: {
+            patternType: "solid",
+            fgColor: { rgb: "FF00B0F0" }, // #00B0F0 background
+          },
+          alignment: {
+            vertical: "center",
+            horizontal: "center",
+            wrapText: true,
+          },
+        }
+      }
+      
+      // Set header row height
+      const rows: any[] = worksheet["!rows"] || []
+      rows[headerRow] = { ...(rows[headerRow] || {}), hpx: 40 }
+      worksheet["!rows"] = rows
+    }
   }
 
   // Create workbook
