@@ -1,4 +1,4 @@
-import * as XLSX from "xlsx"
+import * as XLSX from "xlsx-js-style"
 
 export interface ExportColumn {
   header: string
@@ -34,14 +34,39 @@ export const exportToExcel = (
   const worksheet = XLSX.utils.json_to_sheet(processedData)
 
   // Set column widths
-  const colWidths = columns.map(col => ({
+  const defaultColWidths = columns.map(col => ({
     wch: col.width || Math.max(col.header.length + 2, 10),
   }))
-  worksheet["!cols"] = colWidths
+  worksheet["!cols"] = defaultColWidths
 
   // Apply base font (Calibri 8) to all cells when styles are requested (Oriflame)
   if (options?.applyOriflameStyles && worksheet["!ref"]) {
     const range = XLSX.utils.decode_range(worksheet["!ref"])
+
+    // Apply specific column widths in pixels for A..O
+    // Index 0..14 correspond to A..O
+    const oriflamePx = [
+      70,   // A
+      220,  // B
+      110,  // C
+      70,   // D
+      290,  // E
+      100,  // F
+      160,  // G
+      110,  // H
+      140,  // I
+      120,  // J
+      120,  // K
+      90,   // L
+      160,  // M
+      170,  // N
+      280,  // O
+    ]
+    const cols: any[] = worksheet["!cols"] || []
+    for (let i = 0; i < oriflamePx.length; i++) {
+      cols[i] = { ...(cols[i] || {}), wpx: oriflamePx[i] }
+    }
+    worksheet["!cols"] = cols
 
     for (let row = range.s.r; row <= range.e.r; row++) {
       for (let col = range.s.c; col <= range.e.c; col++) {
@@ -52,8 +77,8 @@ export const exportToExcel = (
         cell.s = {
           ...(cell.s || {}),
           font: {
-            name: "Calibri",
-            sz: 8,
+            name: "Aptos Narrow",
+            sz: 11,
             color: { rgb: "FF000000" },
           },
         }
@@ -71,8 +96,8 @@ export const exportToExcel = (
       cell.s = {
         ...(cell.s || {}),
         font: {
-          name: "Calibri",
-          sz: 8,
+          name: "Aptos Narrow",
+          sz: 11,
           color: { rgb: "FFFFFFFF" },
         },
         fill: {
