@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { use, useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { ArrowLeft } from "lucide-react"
@@ -9,15 +9,57 @@ import { ShipmentHistory } from "@/components/shipment/shipment-history"
 import { useToast } from "@/components/ui/use-toast"
 
 interface EditPageProps {
-  params: {
+  params: Promise<{
     id: string
-  }
-  searchParams: {
+  }>
+  searchParams: Promise<{
     source?: string
+  }>
+}
+
+function normalizeShipmentForForm(shipment: any, sourceTable: string) {
+  if (!shipment) return shipment
+  if (sourceTable !== "oriflame") return shipment
+
+  const toInputDate = (value: any) => {
+    if (!value) return value
+
+    if (typeof value === "string") {
+      const trimmed = value.trim()
+
+      const ddmmyyyyMatch = /^([0-9]{2})[\/\-]([0-9]{2})[\/\-]([0-9]{4})$/.exec(trimmed)
+      if (ddmmyyyyMatch) {
+        const [, dd, mm, yyyy] = ddmmyyyyMatch
+        return `${yyyy}-${mm}-${dd}`
+      }
+
+      if (/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(trimmed)) {
+        return trimmed
+      }
+    }
+
+    const date = new Date(value)
+    if (Number.isNaN(date.getTime())) return value
+
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, "0")
+    const day = String(date.getDate()).padStart(2, "0")
+
+    return `${year}-${month}-${day}`
+  }
+
+  return {
+    ...shipment,
+    fecha_ingreso: toInputDate(shipment.fecha_ingreso),
+    fecha_entrega: toInputDate(shipment.fecha_entrega),
+    fecha_promesa: toInputDate(shipment.fecha_promesa),
   }
 }
 
 export default function EditPage({ params, searchParams }: EditPageProps) {
+  const resolvedParams = use(params)
+  const resolvedSearchParams = use(searchParams)
+
   const router = useRouter()
   const { toast } = useToast()
   const [formData, setFormData] = useState<any>(null)
@@ -28,18 +70,19 @@ export default function EditPage({ params, searchParams }: EditPageProps) {
   const [isDeleting, setIsDeleting] = useState(false)
 
   // Determine source table from search params (default to 'natura')
-  const sourceTable = searchParams.source || 'natura'
+  const sourceTable = resolvedSearchParams.source || "natura"
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await fetch(`/api/shipments/${params.id}?source=${sourceTable}`)
+        const response = await fetch(`/api/shipments/${resolvedParams.id}?source=${sourceTable}`)
         if (!response.ok) {
           throw new Error("Error al cargar datos")
         }
         const data = await response.json()
-        setShipment(data.shipment)
-        setFormData(data.shipment)
+        const normalized = normalizeShipmentForForm(data.shipment, sourceTable)
+        setShipment(normalized)
+        setFormData(normalized)
         setHistory(data.history)
       } catch (error) {
         console.error(error)
@@ -54,7 +97,8 @@ export default function EditPage({ params, searchParams }: EditPageProps) {
     }
 
     fetchData()
-  }, [params.id, sourceTable, toast])
+  }, [resolvedParams.id, sourceTable, toast])
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -81,8 +125,8 @@ export default function EditPage({ params, searchParams }: EditPageProps) {
         return
       }
 
-      const response = await fetch(`/api/shipments/${params.id}?source=${sourceTable}`, {
-        method: "PUT",
+      const response = await fetch(`/api/shipments/${resolvedParams.id}?source=${sourceTable}`, {
+        method: "PATCH",
         headers: {
           "Content-Type": "application/json",
         },
@@ -125,7 +169,7 @@ export default function EditPage({ params, searchParams }: EditPageProps) {
 
     setIsDeleting(true)
     try {
-        const response = await fetch(`/api/shipments/${params.id}?source=${sourceTable}`, {
+        const response = await fetch(`/api/shipments/${resolvedParams.id}?source=${sourceTable}`, {
             method: "DELETE",
         })
 

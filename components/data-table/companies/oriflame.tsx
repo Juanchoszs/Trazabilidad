@@ -68,7 +68,7 @@ export const OriflameRow = ({
             <td className="py-3 px-2 max-w-[100px] truncate text-xs" title={shipment.novedad2 || ""}>{shipment.novedad2 || "-"}</td>
             
             <td className="py-3 px-2 sticky right-0 bg-background group-hover:bg-muted transition-colors z-10 shadow-[-5px_0px_10px_-5px_rgba(0,0,0,0.1)]">
-                <Link href={`/edit/${shipment.id}`}>
+                <Link href={`/edit/${shipment.id}?source=oriflame`}>
                 <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
                     <Edit className="h-4 w-4" />
                 </Button>
@@ -80,18 +80,18 @@ export const OriflameRow = ({
 
 // --- Export Config ---
 export const oriflameExportColumns: ExportColumn[] = [
-    { header: "GUÍA", key: "guia" },
-    { header: "DESTINATARIO", key: "destinatario", format: (s) => s.destinatario || s.nombre_cn },
-    { header: "NÚMERO PEDIDO", key: "numero_pedido", format: (s) => s.numero_pedido || s.pedido },
-    { header: "CÓDIGO EMPRESARIA/O", key: "codigo_empresaria", format: (s) => s.codigo_empresaria || s.cod_cn },
-    { header: "DIRECCIÓN", key: "direccion" },
-    { header: "TELÉFONO", key: "telefono" },
+    { header: "GUIA", key: "guia" },
+    { header: "Destinatario", key: "destinatario", format: (s) => s.destinatario || s.nombre_cn },
+    { header: "Numero Pedido", key: "numero_pedido", format: (s) => s.numero_pedido || s.pedido },
+    { header: "Codigo empresaria/o", key: "codigo_empresaria", format: (s) => s.codigo_empresaria || s.cod_cn },
+    { header: "Direccion", key: "direccion" },
+    { header: "Telefono", key: "telefono" },
     { header: "CIUDAD", key: "ciudad" },
-    { header: "DEPARTAMENTO", key: "departamento" },
-    { header: "FECHA INGRESO A R&M", key: "fecha_ingreso", format: (s) => fmtDate(s.fecha_ingreso || s.fecha_despacho) },
-    { header: "FECHA DE ENTREGA", key: "fecha_entrega", format: (s) => fmtDate(s.fecha_entrega || s.fecha) },
-    { header: "FECHA ENTREGA PROMESA", key: "fecha_promesa", format: (s) => fmtDate(s.fecha_promesa) },
-    { header: "DÍAS PROMESA", key: "dias_promesa", format: (s) => s.dias_promesa || s.pe },
+    { header: "Departamento", key: "departamento" },
+    { header: "Fecha ingreso R&M", key: "fecha_ingreso", format: (s) => fmtDate(s.fecha_ingreso || s.fecha_despacho) },
+    { header: "Fecha entrega", key: "fecha_entrega", format: (s) => fmtDate(s.fecha_entrega || s.fecha) },
+    { header: "Fecha entrega promesa", key: "fecha_promesa", format: (s) => fmtDate(s.fecha_promesa) },
+    { header: "DIAS PROMESA", key: "dias_promesa", format: (s) => s.dias_promesa || s.pe },
     { header: "ESTADO", key: "estado" },
     { header: "NOVEDAD", key: "novedad" },
     { header: "NOVEDAD 2", key: "novedad2", format: (s) => s.novedad2 || s.novedad_2 }

@@ -82,7 +82,7 @@ export const OffcorsRow = ({
             <td className="py-3 px-2 max-w-[100px] truncate text-xs" title={shipment.novedad_2 || ""}>{shipment.novedad_2 || "-"}</td>
             
             <td className="py-3 px-2 sticky right-0 bg-background group-hover:bg-muted transition-colors z-10 shadow-[-5px_0px_10px_-5px_rgba(0,0,0,0.1)]">
-                <Link href={`/edit/${shipment.id}`}>
+                <Link href={`/edit/${shipment.id}?source=offcors`}>
                 <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
                     <Edit className="h-4 w-4" />
                 </Button>

@@ -185,8 +185,24 @@ export function DataTable({ shipments }: DataTableProps) {
   }
 
   const handleExportExcel = () => {
+    let dataToExport = filteredShipments
+    
+    // Sort Oriflame by fecha_ingreso (oldest to newest from 2025)
+    if (transportadoraFilter === "Oriflame") {
+      dataToExport = [...filteredShipments].sort((a, b) => {
+        const dateA = new Date(a.fecha_ingreso || a.fecha_despacho || 0)
+        const dateB = new Date(b.fecha_ingreso || b.fecha_despacho || 0)
+        return dateA.getTime() - dateB.getTime() // Ascending (oldest first)
+      })
+    }
+    
     const fileName = `Trazabilidad_${transportadoraFilter}_${new Date().toISOString().split('T')[0]}.xlsx`
-    exportToExcel(fileName, filteredShipments, strategy.exportCols)
+    exportToExcel(
+      fileName,
+      dataToExport,
+      strategy.exportCols,
+      transportadoraFilter === "Oriflame" ? { applyOriflameStyles: true } : undefined,
+    )
   }
 
   return (

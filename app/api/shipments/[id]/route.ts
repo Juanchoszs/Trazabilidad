@@ -2,38 +2,69 @@ import { NextResponse } from "next/server"
 import { sql } from "@/lib/db"
 
 // Helper function to determine which table a record belongs to
-async function findRecordTable(id: string): Promise<{ table: 'natura' | 'oriflame' | 'offcors' | null; record: any }> {
-  // Try natura_shipments first
-  const naturaResult = await sql`SELECT *, 'natura' as source_table FROM natura_shipments WHERE id = ${id}`
-  if (naturaResult.length > 0) {
-    return { table: 'natura', record: naturaResult[0] }
-  }
-  
-  // Try oriflame_shipments
-  const oriflameResult = await sql`SELECT *, 'oriflame' as source_table FROM oriflame_shipments WHERE id = ${id}`
-  if (oriflameResult.length > 0) {
-    return { table: 'oriflame', record: oriflameResult[0] }
+async function findRecordTable(id: string, source?: string): Promise<{ table: "natura" | "oriflame" | "offcors" | null; record: any }> {
+  // If source is explicitly provided, trust it first
+  if (source === "natura") {
+    const result = await sql`SELECT *, 'natura' as source_table FROM natura_shipments WHERE id = ${id}`
+    return { table: result.length > 0 ? "natura" : null, record: result[0] }
   }
 
-  // Try offcors_shipments
+  if (source === "oriflame") {
+    const result = await sql`SELECT *, 'oriflame' as source_table FROM oriflame_shipments WHERE id = ${id}`
+    return { table: result.length > 0 ? "oriflame" : null, record: result[0] }
+  }
+
+  if (source === "offcors") {
+    const result = await sql`SELECT *, 'offcors' as source_table FROM offcors_shipments WHERE id = ${id}`
+    return { table: result.length > 0 ? "offcors" : null, record: result[0] }
+  }
+
+  // Fallback: try to detect table by ID
+  const naturaResult = await sql`SELECT *, 'natura' as source_table FROM natura_shipments WHERE id = ${id}`
+  if (naturaResult.length > 0) {
+    return { table: "natura", record: naturaResult[0] }
+  }
+
+  const oriflameResult = await sql`SELECT *, 'oriflame' as source_table FROM oriflame_shipments WHERE id = ${id}`
+  if (oriflameResult.length > 0) {
+    return { table: "oriflame", record: oriflameResult[0] }
+  }
+
   const offcorsResult = await sql`SELECT *, 'offcors' as source_table FROM offcors_shipments WHERE id = ${id}`
   if (offcorsResult.length > 0) {
-    return { table: 'offcors', record: offcorsResult[0] }
+    return { table: "offcors", record: offcorsResult[0] }
   }
-  
+
   return { table: null, record: null }
 }
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { searchParams } = new URL(request.url)
+    const source = searchParams.get("source") || undefined
     const { id } = await params
-    const { table, record } = await findRecordTable(id)
+    const { table, record } = await findRecordTable(id, source)
 
     if (!record) {
       return NextResponse.json({ error: "Envío no encontrado" }, { status: 404 })
     }
 
-    return NextResponse.json(record)
+    let history: any[] = []
+    try {
+      history = await sql`
+        SELECT * FROM shipment_history
+        WHERE shipment_id = ${id}
+        ORDER BY modified_at DESC
+        LIMIT 50
+      `
+    } catch (error) {
+      const err = error as any
+      if (err?.code !== "42P01") {
+        throw error
+      }
+    }
+
+    return NextResponse.json({ shipment: record, history })
   } catch (error) {
     console.error("[v0] Error fetching shipment:", error)
     return NextResponse.json({ error: "Error al obtener envío" }, { status: 500 })
@@ -42,9 +73,11 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { searchParams } = new URL(request.url)
+    const source = searchParams.get("source") || undefined
     const { id } = await params
     const body = await request.json()
-    const { table, record: current } = await findRecordTable(id)
+    const { table, record: current } = await findRecordTable(id, source)
 
     if (!current) {
       return NextResponse.json({ error: "Envío no encontrado" }, { status: 404 })
@@ -131,7 +164,45 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       return NextResponse.json({ error: "Tabla no identificada" }, { status: 500 })
     }
 
-    return NextResponse.json(result[0])
+    const updated = result[0]
+
+    const changes = (body.changes || {}) as Record<string, { old: any; new: any }>
+    const changeEntries = Object.entries(changes)
+
+    if (changeEntries.length > 0) {
+      try {
+        await Promise.all(
+          changeEntries.map(([field, value]) =>
+            sql`
+              INSERT INTO shipment_history (shipment_id, campo_modificado, valor_anterior, valor_nuevo, modified_by)
+              VALUES (${id}, ${field}, ${String(value.old ?? "")}, ${String(value.new ?? "")}, 'Manual')
+            `,
+          ),
+        )
+      } catch (error) {
+        const err = error as any
+        if (err?.code !== "42P01") {
+          throw error
+        }
+      }
+    }
+
+    let history: any[] = []
+    try {
+      history = await sql`
+        SELECT * FROM shipment_history
+        WHERE shipment_id = ${id}
+        ORDER BY modified_at DESC
+        LIMIT 50
+      `
+    } catch (error) {
+      const err = error as any
+      if (err?.code !== "42P01") {
+        throw error
+      }
+    }
+
+    return NextResponse.json({ shipment: updated, history })
   } catch (error) {
     console.error("[v0] Error updating shipment:", error)
     return NextResponse.json({ error: "Error al actualizar envío" }, { status: 500 })
@@ -140,8 +211,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { searchParams } = new URL(request.url)
+    const source = searchParams.get("source") || undefined
     const { id } = await params
-    const { table } = await findRecordTable(id)
+    const { table } = await findRecordTable(id, source)
     
     if (!table) {
       return NextResponse.json({ error: "Envío no encontrado" }, { status: 404 })

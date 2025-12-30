@@ -180,7 +180,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
   }
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col" suppressHydrationWarning>
       <Header />
       <main className="flex-1 container mx-auto px-6 py-8 space-y-8 max-w-none">
         <DashboardFilter companies={companies} />

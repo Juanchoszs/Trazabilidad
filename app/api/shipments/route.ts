@@ -56,10 +56,17 @@ export async function POST(request: Request) {
     `
 
     // Create initial history entry
-    await sql`
-      INSERT INTO shipment_history (shipment_id, campo_modificado, valor_anterior, valor_nuevo, modified_by)
-      VALUES (${result[0].id}, 'estado', NULL, ${body.estado || "PENDIENTE"}, 'Manual')
-    `
+    try {
+      await sql`
+        INSERT INTO shipment_history (shipment_id, campo_modificado, valor_anterior, valor_nuevo, modified_by)
+        VALUES (${result[0].id}, 'estado', NULL, ${body.estado || "PENDIENTE"}, 'Manual')
+      `
+    } catch (error) {
+      const err = error as any
+      if (err?.code !== "42P01") {
+        throw error
+      }
+    }
 
     return NextResponse.json(result[0], { status: 201 })
   } catch (error) {

@@ -5,12 +5,20 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   try {
     const { id } = await params
 
-    const history = await sql`
-      SELECT * FROM shipment_history 
-      WHERE shipment_id = ${id}
-      ORDER BY modified_at DESC
-      LIMIT 50
-    `
+    let history: any[] = []
+    try {
+      history = await sql`
+        SELECT * FROM shipment_history 
+        WHERE shipment_id = ${id}
+        ORDER BY modified_at DESC
+        LIMIT 50
+      `
+    } catch (error) {
+      const err = error as any
+      if (err?.code !== "42P01") {
+        throw error
+      }
+    }
 
     return NextResponse.json(history)
   } catch (error) {
