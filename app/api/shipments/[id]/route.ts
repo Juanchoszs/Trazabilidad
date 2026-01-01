@@ -38,6 +38,14 @@ async function findRecordTable(id: string, source?: string): Promise<{ table: "n
   return { table: null, record: null }
 }
 
+// Helper to extract guia based on table
+function getGuia(record: any, table: string) {
+  if (table === "natura") return record.guia
+  if (table === "oriflame") return record.guia
+  if (table === "offcors") return record.numero_guia_rym
+  return record.guia
+}
+
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { searchParams } = new URL(request.url)
@@ -49,18 +57,20 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       return NextResponse.json({ error: "Envío no encontrado" }, { status: 404 })
     }
 
+    const guia = getGuia(record, table!)
     let history: any[] = []
-    try {
-      history = await sql`
-        SELECT * FROM shipment_history
-        WHERE shipment_id = ${id}
-        ORDER BY modified_at DESC
-        LIMIT 50
-      `
-    } catch (error) {
-      const err = error as any
-      if (err?.code !== "42P01") {
-        throw error
+
+    if (guia) {
+      try {
+        history = await sql`
+          SELECT * FROM shipment_history
+          WHERE guia = ${guia}
+          ORDER BY created_at DESC
+          LIMIT 50
+        `
+      } catch (error) {
+        console.error("Error fetching history:", error)
+        // Don't fail if history fails
       }
     }
 
@@ -166,40 +176,32 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
     const updated = result[0]
 
-    const changes = (body.changes || {}) as Record<string, { old: any; new: any }>
-    const changeEntries = Object.entries(changes)
-
-    if (changeEntries.length > 0) {
-      try {
-        await Promise.all(
-          changeEntries.map(([field, value]) =>
-            sql`
-              INSERT INTO shipment_history (shipment_id, campo_modificado, valor_anterior, valor_nuevo, modified_by)
-              VALUES (${id}, ${field}, ${String(value.old ?? "")}, ${String(value.new ?? "")}, 'Manual')
-            `,
-          ),
-        )
-      } catch (error) {
-        const err = error as any
-        if (err?.code !== "42P01") {
-          throw error
+    // History Logic: Only insert if status (estado) changed
+    if (body.estado && body.estado !== current.estado) {
+      const guia = getGuia(updated, table!)
+      if (guia) {
+        try {
+          await sql`
+                  INSERT INTO shipment_history (guia, transportadora, estado, novedad, created_at)
+                  VALUES (${guia}, ${table}, ${body.estado}, ${body.novedad || updated.novedad || ''}, CURRENT_TIMESTAMP)
+                `
+        } catch (error) {
+          console.error("Error creating history entry:", error)
         }
       }
     }
 
     let history: any[] = []
-    try {
-      history = await sql`
-        SELECT * FROM shipment_history
-        WHERE shipment_id = ${id}
-        ORDER BY modified_at DESC
-        LIMIT 50
-      `
-    } catch (error) {
-      const err = error as any
-      if (err?.code !== "42P01") {
-        throw error
-      }
+    const guia = getGuia(updated, table!)
+    if (guia) {
+      try {
+        history = await sql`
+                SELECT * FROM shipment_history
+                WHERE guia = ${guia}
+                ORDER BY created_at DESC
+                LIMIT 50
+            `
+      } catch (e) { console.error(e) }
     }
 
     return NextResponse.json({ shipment: updated, history })
@@ -215,7 +217,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     const source = searchParams.get("source") || undefined
     const { id } = await params
     const { table } = await findRecordTable(id, source)
-    
+
     if (!table) {
       return NextResponse.json({ error: "Envío no encontrado" }, { status: 404 })
     }

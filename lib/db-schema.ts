@@ -99,4 +99,21 @@ export async function ensureTables() {
       CONSTRAINT unique_offcors_guia_rym_entrega UNIQUE (numero_guia_rym, nro_entrega)
     );
   `
+  // Ensure shipment_history table exists
+  await sql`
+    CREATE TABLE IF NOT EXISTS shipment_history (
+      id SERIAL PRIMARY KEY,
+      guia VARCHAR(255) NOT NULL,
+      transportadora VARCHAR(100), -- To know which company it belongs to
+      estado VARCHAR(255),
+      ubicacion VARCHAR(255), -- City or Dept if available
+      novedad TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+  `
+
+  // Create index for faster lookups
+  await sql`
+    CREATE INDEX IF NOT EXISTS idx_shipment_history_guia ON shipment_history(guia);
+  `
 }

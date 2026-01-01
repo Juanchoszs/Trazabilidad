@@ -19,40 +19,64 @@ interface EditPageProps {
 
 function normalizeShipmentForForm(shipment: any, sourceTable: string) {
   if (!shipment) return shipment
-  if (sourceTable !== "oriflame") return shipment
 
+  // Helper date function
   const toInputDate = (value: any) => {
-    if (!value) return value
+    if (!value) return ""
 
     if (typeof value === "string") {
       const trimmed = value.trim()
 
-      const ddmmyyyyMatch = /^([0-9]{2})[\/\-]([0-9]{2})[\/\-]([0-9]{4})$/.exec(trimmed)
-      if (ddmmyyyyMatch) {
-        const [, dd, mm, yyyy] = ddmmyyyyMatch
-        return `${yyyy}-${mm}-${dd}`
+      // Match exact YYYY-MM-DD
+      const yyyymmddMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(trimmed)
+      if (yyyymmddMatch) {
+        return trimmed;
       }
 
-      if (/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(trimmed)) {
-        return trimmed
+      // Match YYYY-MM-DD HH:mm:ss or similar start
+      // This handles "2025-12-22 00:00:00" -> "2025-12-22"
+      const isoStartMatch = /^(\d{4})-(\d{2})-(\d{2})/.exec(trimmed)
+      if (isoStartMatch) {
+        return `${isoStartMatch[1]}-${isoStartMatch[2]}-${isoStartMatch[3]}`
+      }
+
+      // Handle d/m/y format or d-m-y
+      const ddmmyyyyMatch = /^([0-9]{1,2})[\/\-]([0-9]{1,2})[\/\-]([0-9]{4})$/.exec(trimmed)
+      if (ddmmyyyyMatch) {
+        const [, dd, mm, yyyy] = ddmmyyyyMatch
+        return `${yyyy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`
       }
     }
 
+    // Fallback to Date object parsing (be careful of timezone, use UTC parts if input is ISO/Z)
     const date = new Date(value)
-    if (Number.isNaN(date.getTime())) return value
+    if (Number.isNaN(date.getTime())) return ""
 
-    const year = date.getFullYear()
-    const month = String(date.getMonth() + 1).padStart(2, "0")
-    const day = String(date.getDate()).padStart(2, "0")
+    // If it's effectively a string like "2025-12-18T05:00:00.000Z", 
+    // we want the date component. If it's 5AM UTC, it's 00:00 Colombia.
+    // Ideally we want the local representation of that moment in Colombia.
+    // BUT Date.toISOString() gives UTC.
+    // date.getFullYear() gives local system time (server time).
 
-    return `${year}-${month}-${day}`
+    // We'll use ISO string slice as a safe default for strictly ISO inputs
+    try {
+      return date.toISOString().split('T')[0]
+    } catch (e) {
+      const year = date.getFullYear()
+      const month = String(date.getMonth() + 1).padStart(2, "0")
+      const day = String(date.getDate()).padStart(2, "0")
+      return `${year}-${month}-${day}`
+    }
   }
 
   return {
     ...shipment,
+    estado: shipment.estado?.trim(),
     fecha_ingreso: toInputDate(shipment.fecha_ingreso),
     fecha_entrega: toInputDate(shipment.fecha_entrega),
     fecha_promesa: toInputDate(shipment.fecha_promesa),
+    fecha_despacho: toInputDate(shipment.fecha_despacho),
+    fecha: toInputDate(shipment.fecha),
   }
 }
 
@@ -143,12 +167,12 @@ export default function EditPage({ params, searchParams }: EditPageProps) {
       const data = await response.json()
       setShipment(data.shipment)
       setHistory(data.history)
-      
+
       toast({
         title: "Éxito",
         description: "Los cambios se guardaron correctamente",
       })
-      
+
       router.refresh()
     } catch (error) {
       console.error(error)
@@ -164,34 +188,34 @@ export default function EditPage({ params, searchParams }: EditPageProps) {
 
   const handleDelete = async () => {
     if (!confirm("¿Estás seguro de que deseas eliminar este registro? Esta acción no se puede deshacer.")) {
-        return;
+      return;
     }
 
     setIsDeleting(true)
     try {
-        const response = await fetch(`/api/shipments/${resolvedParams.id}?source=${sourceTable}`, {
-            method: "DELETE",
-        })
+      const response = await fetch(`/api/shipments/${resolvedParams.id}?source=${sourceTable}`, {
+        method: "DELETE",
+      })
 
-        if (!response.ok) {
-            throw new Error("Error al eliminar registro")
-        }
+      if (!response.ok) {
+        throw new Error("Error al eliminar registro")
+      }
 
-        toast({
-            title: "Registro eliminado",
-            description: "El registro ha sido eliminado exitosamente",
-        })
+      toast({
+        title: "Registro eliminado",
+        description: "El registro ha sido eliminado exitosamente",
+      })
 
-        router.push("/")
+      router.push("/")
     } catch (error) {
-        console.error(error)
-        toast({
-            variant: "destructive",
-            title: "Error",
-            description: "No se pudo eliminar el registro",
-        })
+      console.error(error)
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "No se pudo eliminar el registro",
+      })
     } finally {
-        setIsDeleting(false)
+      setIsDeleting(false)
     }
   }
 
@@ -209,7 +233,7 @@ export default function EditPage({ params, searchParams }: EditPageProps) {
     <div className="min-h-screen bg-background">
       <div className="mx-auto max-w-6xl px-4 py-8">
         <Link
-          href="/"
+          href="/dashboard"
           className="mb-6 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
         >
           <ArrowLeft className="h-4 w-4" />

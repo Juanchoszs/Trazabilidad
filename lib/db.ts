@@ -27,12 +27,12 @@ export interface Shipment {
 
 export interface ShipmentHistory {
   id: number
-  shipment_id: number
-  campo_modificado: string
-  valor_anterior: string | null
-  valor_nuevo: string | null
-  modified_at: Date
-  modified_by: string
+  guia: string
+  transportadora: string
+  estado: string
+  ubicacion?: string
+  novedad?: string
+  created_at: Date
 }
 
 export interface DashboardStats {

@@ -13,6 +13,7 @@ import { exportToExcel } from "@/lib/excel-export"
 import { NaturaHeaders, NaturaRow, naturaExportColumns } from "./data-table/companies/natura"
 import { OriflameHeaders, OriflameRow, oriflameExportColumns } from "./data-table/companies/oriflame"
 import { OffcorsHeaders, OffcorsRow, offcorsExportColumns } from "./data-table/companies/offcors"
+import { useShipmentFiltering } from "./data-table/use-shipment-filtering"
 
 // Map estado values to badge colors
 function getEstadoBadge(estado: string | null) {
@@ -32,26 +33,32 @@ function getEstadoBadge(estado: string | null) {
   return { label: estado, color: "bg-neutral-100 text-neutral-700" }
 }
 
-const ITEMS_PER_PAGE = 20
-
 interface DataTableProps {
   shipments: any[]
 }
 
 export function DataTable({ shipments }: DataTableProps) {
-  const [transportadoraFilter, setTransportadoraFilter] = useState("Natura")
-  const [estadoFilter, setEstadoFilter] = useState("Todos")
-  const [searchQuery, setSearchQuery] = useState("")
-  const [currentPage, setCurrentPage] = useState(1)
+  const {
+    transportadoraFilter, setTransportadoraFilter,
+    estadoFilter, setEstadoFilter,
+    searchQuery, setSearchQuery,
+    currentPage, setCurrentPage,
+    transportadoras,
+    estados,
+    filteredShipments,
+    paginatedShipments,
+    totalPages
+  } = useShipmentFiltering(shipments)
+
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
 
   // Select Strategy based on filter
   const strategy = useMemo(() => {
     if (transportadoraFilter === "Oriflame") {
-        return { Headers: OriflameHeaders, Row: OriflameRow, exportCols: oriflameExportColumns }
+      return { Headers: OriflameHeaders, Row: OriflameRow, exportCols: oriflameExportColumns }
     }
     if (transportadoraFilter === "Offcors") {
-        return { Headers: OffcorsHeaders, Row: OffcorsRow, exportCols: offcorsExportColumns }
+      return { Headers: OffcorsHeaders, Row: OffcorsRow, exportCols: offcorsExportColumns }
     }
     // Default / Natura
     return { Headers: NaturaHeaders, Row: NaturaRow, exportCols: naturaExportColumns }
@@ -76,85 +83,10 @@ export function DataTable({ shipments }: DataTableProps) {
     setSelectedIds(next)
   }
 
-  const transportadoras = useMemo(() => {
-    const unique = Array.from(new Set(shipments.map((s) => s.transportadora).filter(Boolean)))
-    // Map "REMESAS Y MENSAJES" to "Natura" for the filter list
-    const mapped = unique.map(t => t === "REMESAS Y MENSAJES" ? "Natura" : t)
-    const sorted = Array.from(new Set(mapped)).sort()
-    return sorted
-  }, [shipments])
-
-  const estados = useMemo(() => {
-    // If a specific company is selected, show its allowed statuses
-    if (transportadoraFilter === "Oriflame") {
-      return ["Todos", "PENDIENTE", "ENTREGADO", "NOVEDAD 1", "NOVEDAD 2", "DEVOLUCION"]
-    }
-    if (transportadoraFilter === "Natura") {
-      return ["Todos", "EN TRANSITO", "EN REPARTO", "ENTREGADO", "DEVOLUCION", "NOVEDAD"]
-    }
-    if (transportadoraFilter === "Offcors") {
-      return ["Todos", "PENDIENTE", "ENTREGADO", "NOVEDAD"]
-    }
-
-    // Default: Show unique values from data + Special Filters
-    const unique = Array.from(new Set(shipments.map((s) => s.estado).filter(Boolean)))
-    // Filter out FALLIDO and PERDIDO if they are likely Natura records mixed in
-    return ["Todos", ...unique.filter(e => e !== "FALLIDO" && e !== "PERDIDO").sort(), "NOVEDAD", "NOVEDAD 1", "NOVEDAD 2"]
-  }, [shipments, transportadoraFilter])
-
-  const filteredShipments = useMemo(() => {
-    return shipments.filter((shipment) => {
-      // Direct match handling renaming
-      const isNaturaFilter = transportadoraFilter === "Natura"
-      const transportadoraMatch = 
-        transportadoraFilter === "Todas" || 
-        (isNaturaFilter && shipment.transportadora === "REMESAS Y MENSAJES") ||
-        (!isNaturaFilter && shipment.transportadora === transportadoraFilter)
-
-      let estadoMatch = true
-      if (estadoFilter !== "Todos") {
-        if (estadoFilter === "NOVEDAD" || estadoFilter === "NOVEDAD 1") {
-          estadoMatch = !!shipment.novedad && shipment.novedad.trim() !== ""
-        } else if (estadoFilter === "NOVEDAD 2") {
-          estadoMatch = !!shipment.novedad2 && shipment.novedad2.trim() !== ""
-        } else {
-          // Case insensitive match with trim
-          estadoMatch = shipment.estado?.trim().toUpperCase() === estadoFilter.trim().toUpperCase()
-        }
-      }
-
-      const searchLower = searchQuery.toLowerCase()
-      const searchMatch =
-        !searchQuery ||
-        (shipment.pedido && shipment.pedido.toLowerCase().includes(searchLower)) ||
-        (shipment.guia && shipment.guia.toLowerCase().includes(searchLower)) ||
-        (shipment.nombre_cn && shipment.nombre_cn.toLowerCase().includes(searchLower)) ||
-        (shipment.ciudad && shipment.ciudad.toLowerCase().includes(searchLower)) ||
-        (shipment.nombre_cn && shipment.nombre_cn.toLowerCase().includes(searchLower)) ||
-        (shipment.ciudad && shipment.ciudad.toLowerCase().includes(searchLower)) ||
-        (shipment.cod_cn && shipment.cod_cn.toLowerCase().includes(searchLower)) ||
-        (shipment.novedad && shipment.novedad.toLowerCase().includes(searchLower)) ||
-        (shipment.novedad2 && shipment.novedad2.toLowerCase().includes(searchLower))
-
-      return transportadoraMatch && estadoMatch && searchMatch
-    })
-  }, [shipments, transportadoraFilter, estadoFilter, searchQuery])
-
-  const totalPages = Math.ceil(filteredShipments.length / ITEMS_PER_PAGE)
-  const paginatedShipments = useMemo(() => {
-    const start = (currentPage - 1) * ITEMS_PER_PAGE
-    return filteredShipments.slice(start, start + ITEMS_PER_PAGE)
-  }, [filteredShipments, currentPage])
-
-  // Reset selection when filters or page change
+  // Reset selection when filters change (partially handled by hook resetting page, but selection needs explicit reset)
   useMemo(() => {
     setSelectedIds(new Set())
-    setCurrentPage(1)
-  }, [transportadoraFilter, estadoFilter, searchQuery])
-
-  useMemo(() => {
-    setSelectedIds(new Set())
-  }, [currentPage])
+  }, [transportadoraFilter, estadoFilter, searchQuery, currentPage])
 
   const router = useRouter()
   const [isUpdating, setIsUpdating] = useState(false)
@@ -186,33 +118,30 @@ export function DataTable({ shipments }: DataTableProps) {
 
   const handleExportExcel = () => {
     let dataToExport = filteredShipments
-    
-    // Apply specific sorting based on transportadora
+
+    // Apply specific sorting
     if (transportadoraFilter === "Oriflame") {
-      // Sort Oriflame by fecha_ingreso (oldest to newest)
       dataToExport = [...filteredShipments].sort((a, b) => {
         const dateA = new Date(a.fecha_ingreso || a.fecha_despacho || 0)
         const dateB = new Date(b.fecha_ingreso || b.fecha_despacho || 0)
-        return dateA.getTime() - dateB.getTime() // Ascending (oldest first)
+        return dateA.getTime() - dateB.getTime()
       })
     } else if (transportadoraFilter === "Natura") {
-      // Sort Natura by fecha_despacho (oldest to newest)
       dataToExport = [...filteredShipments].sort((a, b) => {
         const dateA = new Date(a.fecha_despacho || 0)
         const dateB = new Date(b.fecha_despacho || 0)
-        return dateA.getTime() - dateB.getTime() // Ascending (oldest first)
+        return dateA.getTime() - dateB.getTime()
       })
     }
-    
+
     const fileName = `Trazabilidad_${transportadoraFilter}_${new Date().toISOString().split('T')[0]}.xlsx`
-    // Apply specific styles based on transportadora
     let exportOptions
     if (transportadoraFilter === "Oriflame") {
       exportOptions = { applyOriflameStyles: true }
     } else if (transportadoraFilter === "Natura") {
       exportOptions = { applyNaturaStyles: true }
     }
-    
+
     exportToExcel(
       fileName,
       dataToExport,
@@ -232,18 +161,18 @@ export function DataTable({ shipments }: DataTableProps) {
               {selectedIds.size} seleccionados
             </span>
           </div>
-          
+
           <div className="flex items-center gap-2">
             <span className="text-sm text-muted-foreground whitespace-nowrap">Cambiar estado a:</span>
             <div className="flex gap-1">
-              {(transportadoraFilter === "Oriflame" 
+              {(transportadoraFilter === "Oriflame"
                 ? ["PENDIENTE", "ENTREGADO"]
                 : ["PENDIENTE", "EN TRANSITO", "EN REPARTO", "ENTREGADO", "DEVOLUCION"]
               ).map((status) => (
-                <Button 
+                <Button
                   key={status}
-                  variant="outline" 
-                  size="sm" 
+                  variant="outline"
+                  size="sm"
                   className="rounded-full text-[10px] h-7 px-3 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-200"
                   onClick={() => handleBulkUpdate(status)}
                   disabled={isUpdating}
@@ -254,9 +183,9 @@ export function DataTable({ shipments }: DataTableProps) {
             </div>
           </div>
 
-          <Button 
-            variant="ghost" 
-            size="sm" 
+          <Button
+            variant="ghost"
+            size="sm"
             className="rounded-full h-8 w-8 p-0"
             onClick={() => setSelectedIds(new Set())}
           >
@@ -284,7 +213,7 @@ export function DataTable({ shipments }: DataTableProps) {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Buscar por pedido, guía, nombre, código CN o ciudad..."
+            placeholder="Buscar por pedido, guía, nombre..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-9"
@@ -324,7 +253,7 @@ export function DataTable({ shipments }: DataTableProps) {
           <thead>
             <tr className="border-b bg-muted/50">
               <th className="w-10 py-3 px-2">
-                <Checkbox 
+                <Checkbox
                   checked={paginatedShipments.length > 0 && selectedIds.size === paginatedShipments.length}
                   onCheckedChange={toggleAll}
                 />
