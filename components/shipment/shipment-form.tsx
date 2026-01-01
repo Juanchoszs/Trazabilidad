@@ -118,12 +118,11 @@ export function ShipmentForm({
                           "EN TRANSITO",
                           "EN REPARTO",
                           "ENTREGADO",
-                          "NO ENTREGADO",
                           "DEVOLUCION",
                         ]
                     ).concat(
                       (formData.estado && ![
-                        "PENDIENTE", "ENTREGADO", "NOVEDAD", "EN TRANSITO", "EN REPARTO", "NO ENTREGADO", "DEVOLUCION"
+                        "PENDIENTE", "ENTREGADO", "NOVEDAD", "EN TRANSITO", "EN REPARTO", "DEVOLUCION"
                       ].includes(formData.estado)) ? [formData.estado] : []
                     ).map((status) => (
                       <SelectItem key={status} value={status}>

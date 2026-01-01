@@ -38,7 +38,7 @@ export function ShipmentHistory({ history }: ShipmentHistoryProps) {
           <p className="text-sm text-muted-foreground text-center py-4">Sin historial disponible</p>
         ) : (
           <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2">
-            {history.map((entry) => (
+            {history.filter(h => h.estado !== "NO ENTREGADO").map((entry) => (
               <div key={entry.id} className="relative pl-6 pb-4 border-l last:pb-0 last:border-0">
                 <div className="absolute left-[-9px] top-0 bg-white dark:bg-gray-950 p-1">
                   {getStatusIcon(entry.estado)}
@@ -48,11 +48,34 @@ export function ShipmentHistory({ history }: ShipmentHistoryProps) {
                   <div className="flex justify-between items-start">
                     <span className="font-semibold text-sm">{entry.estado}</span>
                     <span className="text-xs text-muted-foreground whitespace-nowrap ml-2">
-                      {new Date((entry.created_at.endsWith('Z') ? entry.created_at : entry.created_at + 'Z')).toLocaleString("es-CO", {
-                        timeZone: 'America/Bogota',
-                        day: '2-digit', month: '2-digit', year: '2-digit',
-                        hour: '2-digit', minute: '2-digit', hour12: true
-                      })}
+                      {(() => {
+                        try {
+                          const s = String(entry.created_at).trim();
+                          // Parse YYYY-MM-DD HH:mm:ss directly to local time components
+                          const match = s.match(/^(\d{4})[-/](\d{2})[-/](\d{2})(?:[T\s](\d{2}):(\d{2})(?::(\d{2}))?)?/);
+
+                          let dateObj;
+                          if (match) {
+                            const year = parseInt(match[1], 10);
+                            const month = parseInt(match[2], 10) - 1;
+                            const day = parseInt(match[3], 10);
+                            const hour = match[4] ? parseInt(match[4], 10) : 0;
+                            const minute = match[5] ? parseInt(match[5], 10) : 0;
+                            const second = match[6] ? parseInt(match[6], 10) : 0;
+                            dateObj = new Date(year, month, day, hour - 10, minute, second);
+                          } else {
+                            dateObj = new Date(s);
+                            dateObj.setHours(dateObj.getHours() - 10);
+                          }
+
+                          return dateObj.toLocaleString("es-CO", {
+                            day: '2-digit', month: '2-digit', year: '2-digit',
+                            hour: '2-digit', minute: '2-digit', hour12: true
+                          });
+                        } catch (e) {
+                          return entry.created_at;
+                        }
+                      })()}
                     </span>
                   </div>
 

@@ -181,6 +181,19 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       const guia = getGuia(updated, table!)
       if (guia) {
         try {
+          // Check if history exists
+          const existingHistory = await sql`SELECT 1 FROM shipment_history WHERE guia = ${guia} LIMIT 1`
+
+          // If NO history exists, we must "backfill" the previous status so it's not lost.
+          // Using current.fecha (if available) or current.created_at as the timestamp for the old status.
+          if (existingHistory.length === 0) {
+            const oldTimestamp = current.fecha || current.created_at || new Date().toISOString()
+            await sql`
+                  INSERT INTO shipment_history (guia, transportadora, estado, novedad, created_at)
+                  VALUES (${guia}, ${table}, ${current.estado}, ${current.novedad || ''}, ${oldTimestamp})
+                `
+          }
+
           await sql`
                   INSERT INTO shipment_history (guia, transportadora, estado, novedad, created_at)
                   VALUES (${guia}, ${table}, ${body.estado}, ${body.novedad || updated.novedad || ''}, CURRENT_TIMESTAMP)

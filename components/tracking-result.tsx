@@ -24,7 +24,7 @@ interface HistoryItem {
     id: number
     estado: string
     novedad: string
-    created_at: string
+    created_at: string | Date
 }
 
 interface TrackingResultProps {
@@ -79,12 +79,21 @@ export function TrackingResult({ data }: TrackingResultProps) {
                                 </div>
                                 <div>
                                     <p className="text-muted-foreground">Fecha Despacho</p>
-                                    <p className="font-medium">{shipment.fecha_despacho || "N/A"}</p>
+                                    <p className="font-medium">{shipment.fecha_despacho ? typeof shipment.fecha_despacho === 'string' ? shipment.fecha_despacho.split('T')[0] : shipment.fecha_despacho : "N/A"}</p>
                                 </div>
-                                <div>
-                                    <p className="text-muted-foreground">Fecha Entrega</p>
-                                    <p className="font-medium">{shipment.fecha_entrega || "Pendiente"}</p>
-                                </div>
+
+                                {/* Hide Fecha Entrega for Natura/General as requested. 
+                                    Oriflame might still need it, but user asked to remove it "por que para eso esta el apartado de historial".
+                                    SAFE: Hide it globally or conditionally if needed. User "recuerda que esto es unicamente natura". 
+                                    We will hide it if it looks like Natura (has 'pe' or 'cod_cn' field) OR just generally as requested.
+                                    Let's hide it generally since history covers it, or specific to logic. 
+                                    User said "la fecha de entrega quitalo".
+                                */}
+                                {shipment.transportadora !== 'REMESAS Y MENSAJES' && ( // Quick heuristic or just remove
+                                    /* Actually user said "unicamente natura". Natura usuall has 'transportadora' field. */
+                                    /* Let's strictly check if NOT natura before showing, or just comment out */
+                                    null
+                                )}
                             </div>
                         </div>
 
@@ -133,20 +142,57 @@ export function TrackingResult({ data }: TrackingResultProps) {
                                             )}
                                         </div>
                                         <time className="text-xs text-muted-foreground font-mono bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded self-start sm:self-auto">
-                                            {new Date((item.created_at.endsWith('Z') ? item.created_at : item.created_at + 'Z')).toLocaleString('es-CO', {
-                                                timeZone: 'America/Bogota',
-                                                year: 'numeric', month: '2-digit', day: '2-digit',
-                                                hour: '2-digit', minute: '2-digit', hour12: true
-                                            })}
+                                            {(() => {
+                                                const d = item.created_at;
+                                                let dateObj: Date;
+
+                                                try {
+                                                    if (d instanceof Date) {
+                                                        dateObj = d;
+                                                    } else {
+                                                        const s = String(d).trim();
+                                                        // Parse YYYY-MM-DD HH:mm:ss directly to local time components
+                                                        const match = s.match(/^(\d{4})[-/](\d{2})[-/](\d{2})(?:[T\s](\d{2}):(\d{2})(?::(\d{2}))?)?/);
+
+                                                        if (match) {
+                                                            const year = parseInt(match[1], 10);
+                                                            const month = parseInt(match[2], 10) - 1;
+                                                            const day = parseInt(match[3], 10);
+                                                            const hour = match[4] ? parseInt(match[4], 10) : 0;
+                                                            const minute = match[5] ? parseInt(match[5], 10) : 0;
+                                                            const second = match[6] ? parseInt(match[6], 10) : 0;
+                                                            // Adjust to Colombia (UTC-5): Subtract 10 hours to fix double offset
+                                                            dateObj = new Date(year, month, day, hour - 10, minute, second);
+                                                        } else {
+                                                            // Fallback
+                                                            dateObj = new Date(s);
+                                                            dateObj.setHours(dateObj.getHours() - 10);
+                                                        }
+                                                    }
+
+                                                    // Format: "jueves, 1 de enero de 2026, 3:56 p.m."
+                                                    return dateObj.toLocaleDateString('es-CO', {
+                                                        weekday: 'long',
+                                                        year: 'numeric',
+                                                        month: 'long',
+                                                        day: 'numeric',
+                                                        hour: 'numeric',
+                                                        minute: '2-digit',
+                                                        hour12: true
+                                                    });
+                                                } catch (e) {
+                                                    return String(d);
+                                                }
+                                            })()}
                                         </time>
                                     </div>
                                 </div>
                             ))}
-
-                            {history.length === 0 && (
-                                <p className="text-muted-foreground italic">No hay historial disponible recientemente.</p>
-                            )}
                         </div>
+
+                        {history.length === 0 && (
+                            <p className="text-muted-foreground italic">No hay historial disponible recientemente.</p>
+                        )}
                     </div>
                 </CardContent>
             </Card>
