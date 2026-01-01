@@ -11,3 +11,5 @@ build
 coverage
 .vercel
 .env*.local
+
+.vercel
