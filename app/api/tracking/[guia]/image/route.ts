@@ -1,198 +1,98 @@
 import { NextResponse } from "next/server"
+import { Buffer } from "node:buffer"
 import { sql } from "@/lib/db"
 import { ensureTables } from "@/lib/db-schema"
-import { generateNaturaGuiaImage } from "@/lib/guia-image-generator"
+import { visualCache } from "@/lib/visual-cache"
+import { generateVisualGuide, type VisualGuideData } from "@/lib/visual-generator"
 
 export async function GET(
-    request: Request,
-    { params }: { params: Promise<{ guia: string }> }
+  request: Request,
+  { params }: { params: Promise<{ guia: string }> }
 ) {
-    try {
-        const { guia } = await params
+  const guia = (await params).guia
 
-        // Validar que la guía existe
-        if (!guia || typeof guia !== 'string' || guia.trim() === '') {
-            return NextResponse.json(
-                { error: "Número de guía inválido" },
-                { status: 400 }
-            )
-        }
-
-        await ensureTables()
-        
-        // Buscar solo en Natura (según requerimiento)
-        const natura = await sql`
-            SELECT * FROM natura_shipments 
-            WHERE guia = ${guia.trim()} OR pedido = ${guia.trim()} 
-            LIMIT 1
-        `
-
-        if (!natura || natura.length === 0) {
-            // Retornar imagen de error en lugar de JSON
-            try {
-                const { createCanvas } = await import('@napi-rs/canvas')
-                const errorCanvas = createCanvas(600, 200)
-                const errorCtx = errorCanvas.getContext('2d')
-                
-                errorCtx.fillStyle = '#FFFFFF'
-                errorCtx.fillRect(0, 0, 600, 200)
-                errorCtx.fillStyle = '#FF6B35'
-                errorCtx.font = 'bold 20px Arial'
-                errorCtx.fillText('Guía no encontrada', 50, 80)
-                errorCtx.fillStyle = '#666666'
-                errorCtx.font = '16px Arial'
-                errorCtx.fillText(`Guía: ${guia}`, 50, 120)
-                
-                const errorBuffer = errorCanvas.toBuffer('image/png')
-                
-                return new NextResponse(errorBuffer, {
-                    status: 404,
-                    headers: {
-                        'Content-Type': 'image/png',
-                        'Cache-Control': 'no-cache'
-                    }
-                })
-            } catch (canvasError) {
-                return NextResponse.json(
-                    { error: "Guía de Natura no encontrada" },
-                    { status: 404 }
-                )
-            }
-        }
-
-        const shipment = natura[0]
-
-        // Validar que la guía existe en el shipment
-        if (!shipment.guia) {
-            // Retornar imagen de error
-            try {
-                const { createCanvas } = await import('@napi-rs/canvas')
-                const errorCanvas = createCanvas(600, 200)
-                const errorCtx = errorCanvas.getContext('2d')
-                
-                errorCtx.fillStyle = '#FFFFFF'
-                errorCtx.fillRect(0, 0, 600, 200)
-                errorCtx.fillStyle = '#FF6B35'
-                errorCtx.font = 'bold 20px Arial'
-                errorCtx.fillText('Guía inválida', 50, 80)
-                errorCtx.fillStyle = '#666666'
-                errorCtx.font = '16px Arial'
-                errorCtx.fillText('La guía no tiene un número válido', 50, 120)
-                
-                const errorBuffer = errorCanvas.toBuffer('image/png')
-                
-                return new NextResponse(errorBuffer, {
-                    status: 400,
-                    headers: {
-                        'Content-Type': 'image/png',
-                        'Cache-Control': 'no-cache'
-                    }
-                })
-            } catch (canvasError) {
-                return NextResponse.json(
-                    { error: "La guía no tiene un número de guía válido" },
-                    { status: 400 }
-                )
-            }
-        }
-
-        // Preparar datos para la generación de imagen con valores por defecto
-        const guiaData = {
-            transportadora: shipment.transportadora || null,
-            fecha_despacho: shipment.fecha_despacho || null,
-            pedido: shipment.pedido || null,
-            guia: String(shipment.guia).trim(), // Asegurar que siempre sea string
-            estado: shipment.estado || null,
-            fecha: shipment.fecha || null,
-            novedad: shipment.novedad || null,
-            pe: shipment.pe || null,
-            cod_cn: shipment.cod_cn || null,
-            nombre_cn: shipment.nombre_cn || null,
-            departamento: shipment.departamento || null,
-            ciudad: shipment.ciudad || null,
-            direccion: shipment.direccion || null,
-            telefono: shipment.telefono || null
-        }
-
-        // Generar imagen bajo demanda
-        let imageBuffer: Buffer
-        try {
-            imageBuffer = await generateNaturaGuiaImage(guiaData)
-            
-            // Validar que el buffer se generó correctamente
-            if (!imageBuffer || imageBuffer.length === 0) {
-                throw new Error("Buffer de imagen vacío")
-            }
-        } catch (genError: any) {
-            console.error("Error en generateNaturaGuiaImage:", genError)
-            console.error("Stack:", genError?.stack)
-            
-            // Generar imagen de error
-            const { createCanvas } = await import('@napi-rs/canvas')
-            const errorCanvas = createCanvas(600, 300)
-            const errorCtx = errorCanvas.getContext('2d')
-            
-            errorCtx.fillStyle = '#FFFFFF'
-            errorCtx.fillRect(0, 0, 600, 300)
-            errorCtx.fillStyle = '#FF0000'
-            errorCtx.font = 'bold 24px Arial'
-            errorCtx.fillText('Error al generar imagen', 50, 100)
-            errorCtx.fillStyle = '#666666'
-            errorCtx.font = '16px Arial'
-            errorCtx.fillText(`Guía: ${guiaData.guia}`, 50, 140)
-            if (process.env.NODE_ENV === 'development') {
-                errorCtx.fillText(genError?.message || 'Error desconocido', 50, 170)
-            }
-            
-            imageBuffer = errorCanvas.toBuffer('image/png')
-        }
-
-        // Retornar imagen como respuesta
-        return new NextResponse(imageBuffer, {
-            status: 200,
-            headers: {
-                'Content-Type': 'image/png',
-                'Cache-Control': 'public, max-age=3600, s-maxage=3600', // Cache por 1 hora
-                'Content-Disposition': `inline; filename="guia_${guiaData.guia.replace(/[^a-zA-Z0-9]/g, '_')}.png"`
-            }
-        })
-
-    } catch (error: any) {
-        console.error("Error generando imagen de guía:", error)
-        console.error("Stack trace:", error?.stack)
-        
-        // Retornar una imagen de error en lugar de JSON para que el componente pueda manejarla
-        try {
-            const { createCanvas } = await import('@napi-rs/canvas')
-            const errorCanvas = createCanvas(400, 200)
-            const errorCtx = errorCanvas.getContext('2d')
-            
-            errorCtx.fillStyle = '#FFFFFF'
-            errorCtx.fillRect(0, 0, 400, 200)
-            errorCtx.fillStyle = '#FF0000'
-            errorCtx.font = '20px Arial'
-            errorCtx.fillText('Error al generar imagen', 50, 100)
-            
-            const errorBuffer = errorCanvas.toBuffer('image/png')
-            
-            return new NextResponse(errorBuffer, {
-                status: 500,
-                headers: {
-                    'Content-Type': 'image/png',
-                    'Cache-Control': 'no-cache'
-                }
-            })
-        } catch (canvasError) {
-            // Si no se puede generar imagen de error, retornar JSON
-            const errorMessage = error?.message || "Error desconocido al generar la imagen de la guía"
-            
-            return NextResponse.json(
-                { 
-                    error: "Error al generar la imagen de la guía",
-                    details: process.env.NODE_ENV === 'development' ? errorMessage : undefined
-                },
-                { status: 500 }
-            )
-        }
+  try {
+    // 1. Check Cache first
+    const cachedImage = visualCache.get(guia)
+    if (cachedImage) {
+      return new Response(cachedImage as any, {
+        headers: {
+          "Content-Type": "image/png",
+          "Cache-Control": "public, max-age=300", // 5 minutes browser cache
+        },
+      })
     }
+
+    await ensureTables()
+
+    // 2. Fetch data (similar logic to tracking route)
+    const natura = await sql`
+      SELECT *, 'Natura' as source_table FROM natura_shipments 
+      WHERE guia = ${guia} OR pedido = ${guia} 
+      LIMIT 1
+    `
+    const oriflame = await sql`
+      SELECT *, 'Oriflame' as source_table FROM oriflame_shipments
+      WHERE guia = ${guia} OR numero_pedido = ${guia}
+      LIMIT 1
+    `
+    const offcors = await sql`
+      SELECT *, 'Offcors' as source_table FROM offcors_shipments
+      WHERE numero_guia_rym = ${guia} OR no_guia_hermeco = ${guia}
+      LIMIT 1
+    `
+
+    const shipment = (natura[0] || oriflame[0] || offcors[0]) as any
+
+    if (!shipment) {
+      return NextResponse.json({ error: "Guía no encontrada" }, { status: 404 })
+    }
+
+    const actualGuia = String(shipment.guia || shipment.numero_guia_rym || guia)
+    
+    // 3. Fetch History for the visual
+    const history = (await sql`
+      SELECT * FROM shipment_history 
+      WHERE guia = ${actualGuia}
+      ORDER BY created_at DESC
+      LIMIT 10
+    `) as any[]
+
+    // Normalize data for the generator
+    const visualData: VisualGuideData = {
+      guia: actualGuia,
+      pedido: String(shipment.pedido || shipment.numero_pedido || shipment.no_guia_hermeco || ""),
+      destinatario: String(shipment.destinatario || shipment.nombre_cn || "Destinatario no disponible"),
+      direccion: String(shipment.direccion || "Dirección no disponible"),
+      ciudad: String(shipment.ciudad || "Ciudad no disponible"),
+      departamento: String(shipment.departamento || "Depto no disponible"),
+      estado: String(shipment.estado || "PENDIENTE").toUpperCase(),
+      fecha_despacho: String(shipment.fecha_despacho || shipment.fecha_ingreso || "-"),
+      transportadora: String(shipment.transportadora || shipment.source_table || ""),
+      servicio: String(shipment.cliente || shipment.source_table || ""),
+      history: history.length > 0 ? history : [{
+        estado: shipment.estado,
+        novedad: shipment.novedad || shipment.novedad_despacho || shipment.novedad_entrega,
+        created_at: shipment.updated_at || shipment.created_at
+      }]
+    }
+
+    // 4. Generate Visual (in-memory)
+    const imageBuffer = await generateVisualGuide(visualData)
+
+    // 5. Store in LRU Cache
+    visualCache.set(guia, imageBuffer)
+
+    // 6. Return response
+    return new Response(imageBuffer as any, {
+      headers: {
+        "Content-Type": "image/png",
+        "Cache-Control": "public, max-age=300",
+      },
+    })
+
+  } catch (error) {
+    console.error("Error generating visual guide:", error)
+    return NextResponse.json({ error: "Error interno al generar la guía" }, { status: 500 })
+  }
 }

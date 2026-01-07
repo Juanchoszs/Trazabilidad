@@ -3,6 +3,7 @@ const nextConfig = {
   turbopack: {
     root: 'C:/Users/Remesas-Despachos/Desktop/Trazabilidad',
   },
+  serverExternalPackages: ["@resvg/resvg-js"],
   typescript: {
     ignoreBuildErrors: true,
   },
