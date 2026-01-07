@@ -39,25 +39,55 @@ export async function PATCH(request: Request) {
       }
     }
 
-    // Perform bulk update based on identified table
+    // 4. Determine columns and perform bulk update + history
+    const now = new Date()
+    const formattedDate = now.toLocaleString('es-CO', { timeZone: 'America/Bogota' })
+
     if (table === "oriflame_shipments") {
+        const records = await sql`SELECT id, guia, estado, cliente FROM oriflame_shipments WHERE id = ANY(${ids})`
         await sql`
           UPDATE oriflame_shipments
-          SET estado = ${status}, updated_at = NOW()
+          SET estado = ${status}, updated_at = NOW(), fecha_entrega = NOW()
           WHERE id = ANY(${ids})
         `
+        for (const rec of records) {
+          if (rec.guia) {
+            await sql`
+              INSERT INTO shipment_history (guia, transportadora, estado, created_at)
+              VALUES (${rec.guia}, ${rec.cliente || "Oriflame"}, ${status}, NOW())
+            `
+          }
+        }
     } else if (table === "offcors_shipments") {
+        const records = await sql`SELECT id, numero_guia_rym as guia, estado, cliente FROM offcors_shipments WHERE id = ANY(${ids})`
         await sql`
           UPDATE offcors_shipments
-          SET estado = ${status}, updated_at = NOW()
+          SET estado = ${status}, updated_at = NOW(), fecha_entrega = NOW()
           WHERE id = ANY(${ids})
         `
+        for (const rec of records) {
+          if (rec.guia) {
+            await sql`
+              INSERT INTO shipment_history (guia, transportadora, estado, created_at)
+              VALUES (${rec.guia}, ${rec.cliente || "Offcors"}, ${status}, NOW())
+            `
+          }
+        }
     } else {
+        const records = await sql`SELECT id, guia, estado, cliente FROM natura_shipments WHERE id = ANY(${ids})`
         await sql`
           UPDATE natura_shipments
-          SET estado = ${status}, updated_at = NOW()
+          SET estado = ${status}, updated_at = NOW(), fecha = NOW()
           WHERE id = ANY(${ids})
         `
+        for (const rec of records) {
+          if (rec.guia) {
+            await sql`
+              INSERT INTO shipment_history (guia, transportadora, estado, created_at)
+              VALUES (${rec.guia}, ${rec.cliente || "Natura"}, ${status}, NOW())
+            `
+          }
+        }
     }
 
     return NextResponse.json({ success: true, count: ids.length })

@@ -66,7 +66,7 @@ export function DataTable({ shipments }: DataTableProps) {
 
   const toggleAll = (checked: boolean) => {
     if (checked) {
-      const allIds = paginatedShipments.map((s) => s.id)
+      const allIds = filteredShipments.map((s) => s.id)
       setSelectedIds(new Set(allIds))
     } else {
       setSelectedIds(new Set())
@@ -83,10 +83,10 @@ export function DataTable({ shipments }: DataTableProps) {
     setSelectedIds(next)
   }
 
-  // Reset selection when filters change (partially handled by hook resetting page, but selection needs explicit reset)
+  // Reset selection when brand/status filters or search change
   useMemo(() => {
     setSelectedIds(new Set())
-  }, [transportadoraFilter, estadoFilter, searchQuery, currentPage])
+  }, [transportadoraFilter, estadoFilter, searchQuery])
 
   const router = useRouter()
   const [isUpdating, setIsUpdating] = useState(false)

@@ -43,11 +43,6 @@ export async function generateVisualGuide(data: VisualGuideData): Promise<Buffer
   const fontData = await getFont()
   const fontDataBold = await getFontBold()
   
-  const qrCodeDataUrl = await QRCode.toDataURL(
-    `https://trazabilidad.vercel.app/tracking/${data.guia}`,
-    { margin: 1, width: 100 }
-  )
-
   const svg = await satori(
     <div
       style={{
@@ -67,7 +62,6 @@ export async function generateVisualGuide(data: VisualGuideData): Promise<Buffer
           <span style={{ fontSize: "24px", fontWeight: "bold", color: "#ea580c" }}>REMESAS Y MENSAJES</span>
           <span style={{ fontSize: "14px", color: "#6b7280" }}>Trazabilidad Online</span>
         </div>
-        <img src={qrCodeDataUrl} style={{ width: "80px", height: "80px" }} />
       </div>
 
       <div style={{ display: "flex", gap: "20px", marginBottom: "30px" }}>
@@ -117,18 +111,32 @@ export async function generateVisualGuide(data: VisualGuideData): Promise<Buffer
 
       {/* History Table Header */}
       <div style={{ display: "flex", borderBottom: "1px solid #e5e7eb", paddingBottom: "10px", marginBottom: "10px" }}>
-        <span style={{ fontSize: "12px", fontWeight: "bold", width: "30%" }}>Fecha</span>
-        <span style={{ fontSize: "12px", fontWeight: "bold", width: "40%" }}>Estado</span>
-        <span style={{ fontSize: "12px", fontWeight: "bold", width: "30%" }}>Novedad</span>
+        <span style={{ fontSize: "12px", fontWeight: "bold", width: "40%" }}>Fecha / Hora</span>
+        <span style={{ fontSize: "12px", fontWeight: "bold", width: "35%" }}>Estado</span>
+        <span style={{ fontSize: "12px", fontWeight: "bold", width: "25%" }}>Novedad</span>
       </div>
 
       {/* History Items */}
       <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
         {data.history.slice(0, 5).map((item, idx) => (
           <div key={idx} style={{ display: "flex", fontSize: "11px" }}>
-            <span style={{ width: "30%" }}>{new Date(item.created_at).toLocaleDateString()}</span>
-            <span style={{ width: "40%", fontWeight: "bold" }}>{item.estado}</span>
-            <span style={{ width: "30%", color: "#6b7280" }}>{item.novedad || "-"}</span>
+            <span style={{ width: "40%" }}>
+              {(() => {
+                const dateObj = new Date(item.created_at);
+                // Adjust to match user's requested logic (-5 hours)
+                dateObj.setHours(dateObj.getHours() - 5);
+                return dateObj.toLocaleString('es-CO', { 
+                  day: '2-digit', 
+                  month: '2-digit', 
+                  year: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                  hour12: true
+                });
+              })()}
+            </span>
+            <span style={{ width: "35%", fontWeight: "bold" }}>{item.estado}</span>
+            <span style={{ width: "25%", color: "#6b7280" }}>{item.novedad || "-"}</span>
           </div>
         ))}
       </div>
