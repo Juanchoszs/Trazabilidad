@@ -149,7 +149,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   `
 
     const [shipments, statsResult, companiesResult] = await Promise.all([
-        sql`SELECT * FROM (${baseQuery}) AS combined_table ${whereClause} ORDER BY created_at DESC LIMIT 1000`,
+        sql`SELECT * FROM (${baseQuery}) AS combined_table ${whereClause} ORDER BY created_at DESC`,
         sql`
       SELECT 
         COUNT(*) as total,

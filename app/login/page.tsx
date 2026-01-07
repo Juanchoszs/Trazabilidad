@@ -18,32 +18,20 @@ export default function LoginPage() {
         setError("")
 
         try {
-            // Create abort controller for timeout
-            const controller = new AbortController()
-            const timeoutId = setTimeout(() => controller.abort(), 10000) // 10 second timeout
-
             const res = await fetch("/api/auth/login", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ username, password }),
-                signal: controller.signal,
             })
 
-            clearTimeout(timeoutId)
-
             if (res.ok) {
-                // Navigate immediately - loading.tsx will show while dashboard loads
-                window.location.href = "/dashboard"
+                router.push("/dashboard")
             } else {
                 const data = await res.json()
                 setError(data.error || "Error al iniciar sesión")
             }
         } catch (err) {
-            if (err instanceof Error && err.name === "AbortError") {
-                setError("La solicitud tardó demasiado. Por favor, intenta de nuevo.")
-            } else {
-                setError("Error de conexión. Verifica tu red e intenta de nuevo.")
-            }
+            setError("Error de conexión")
         } finally {
             setLoading(false)
         }

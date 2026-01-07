@@ -2,8 +2,6 @@ import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
 
 export async function POST(request: Request) {
-    const startTime = Date.now()
-    
     try {
         const { username, password } = await request.json()
 
@@ -19,12 +17,7 @@ export async function POST(request: Request) {
             })
             return NextResponse.json(
                 { error: "Error de configuración del servidor" },
-                { 
-                    status: 500,
-                    headers: {
-                        "Cache-Control": "no-store, no-cache, must-revalidate",
-                    }
-                }
+                { status: 500 }
             )
         }
 
@@ -40,43 +33,12 @@ export async function POST(request: Request) {
                 path: "/",
             })
 
-            const duration = Date.now() - startTime
-            console.log(`Login successful in ${duration}ms`)
-
-            return NextResponse.json(
-                { success: true },
-                {
-                    headers: {
-                        "Cache-Control": "no-store, no-cache, must-revalidate",
-                    }
-                }
-            )
+            return NextResponse.json({ success: true })
         }
 
-        const duration = Date.now() - startTime
-        console.log(`Login failed (invalid credentials) in ${duration}ms`)
-        
-        return NextResponse.json(
-            { error: "Credenciales inválidas" }, 
-            { 
-                status: 401,
-                headers: {
-                    "Cache-Control": "no-store, no-cache, must-revalidate",
-                }
-            }
-        )
+        return NextResponse.json({ error: "Credenciales inválidas" }, { status: 401 })
     } catch (error) {
-        const duration = Date.now() - startTime
-        console.error(`Login error after ${duration}ms:`, error)
-        
-        return NextResponse.json(
-            { error: "Error en el servidor" }, 
-            { 
-                status: 500,
-                headers: {
-                    "Cache-Control": "no-store, no-cache, must-revalidate",
-                }
-            }
-        )
+        console.error("Login error:", error)
+        return NextResponse.json({ error: "Error en el servidor" }, { status: 500 })
     }
 }

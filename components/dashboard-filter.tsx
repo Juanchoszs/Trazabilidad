@@ -21,7 +21,7 @@ export function DashboardFilter({ companies }: DashboardFilterProps) {
     } else {
       params.set("transportadora", "Natura")
     }
-    router.push(`/?${params.toString()}`)
+    router.push(`/dashboard?${params.toString()}`)
   }
 
   const onNovedadesChange = (checked: boolean) => {
@@ -31,7 +31,7 @@ export function DashboardFilter({ companies }: DashboardFilterProps) {
     } else {
       params.delete("novedades")
     }
-    router.push(`/?${params.toString()}`)
+    router.push(`/dashboard?${params.toString()}`)
   }
 
   return (

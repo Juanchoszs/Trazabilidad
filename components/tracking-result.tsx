@@ -1,9 +1,12 @@
 "use client"
 
+import { useState } from "react"
+import Image from "next/image"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
-import { CheckCircle2, Circle, Truck, Package, Clock, AlertTriangle } from "lucide-react"
+import { CheckCircle2, Circle, Truck, Package, Clock, AlertTriangle, FileImage, Loader2 } from "lucide-react"
+import { Button } from "@/components/ui/button"
 
 interface Shipment {
     guia: string
@@ -36,14 +39,45 @@ interface TrackingResultProps {
 
 export function TrackingResult({ data }: TrackingResultProps) {
     const { shipment, history } = data
+    const [showImage, setShowImage] = useState(false)
+    const [imageLoading, setImageLoading] = useState(false)
+    const [imageError, setImageError] = useState(false)
+
+    // Verificar si es una guía de Natura (más robusto)
+    const isNatura = Boolean(
+        (shipment.servicio && (
+            shipment.servicio.toLowerCase() === 'natura' ||
+            shipment.servicio === 'Natura'
+        )) ||
+        (shipment.transportadora && shipment.transportadora.toLowerCase().includes('natura'))
+    )
 
     const getStatusColor = (status: string) => {
-        const s = status?.toLowerCase() || ""
+        if (!status) return "bg-gray-500"
+        const s = status.toLowerCase()
         if (s.includes("entregado")) return "bg-green-500"
         if (s.includes("pendiente")) return "bg-yellow-500"
         if (s.includes("transito") || s.includes("camino") || s.includes("reparto")) return "bg-blue-500"
         if (s.includes("novedad") || s.includes("fallido") || s.includes("devuelto") || s.includes("devolucion")) return "bg-red-500"
         return "bg-gray-500"
+    }
+
+    const handleToggleImage = () => {
+        if (!showImage) {
+            setImageLoading(true)
+            setImageError(false)
+            // Forzar recarga al mostrar
+            setTimeout(() => {
+                const img = document.querySelector(`img[alt="Guía ${shipment.guia || 'N/A'}"]`) as HTMLImageElement
+                if (img) {
+                    img.src = `/api/tracking/${encodeURIComponent(shipment.guia || '')}/image?t=${Date.now()}`
+                }
+            }, 100)
+        } else {
+            setImageLoading(false)
+            setImageError(false)
+        }
+        setShowImage(!showImage)
     }
 
     return (
@@ -120,6 +154,96 @@ export function TrackingResult({ data }: TrackingResultProps) {
                     </div>
 
                     <Separator className="my-8" />
+
+                    {/* Sección de imagen de guía para Natura */}
+                    {isNatura && (
+                        <>
+                            <div className="space-y-4">
+                                <div className="flex items-center justify-between">
+                                    <h3 className="font-semibold text-lg flex items-center gap-2">
+                                        <FileImage className="h-5 w-5 text-orange-600" />
+                                        Visualización de Guía
+                                    </h3>
+                                    <Button
+                                        onClick={handleToggleImage}
+                                        variant="outline"
+                                        size="sm"
+                                        className="flex items-center gap-2"
+                                    >
+                                        {showImage ? (
+                                            <>
+                                                Ocultar Imagen
+                                            </>
+                                        ) : (
+                                            <>
+                                                {imageLoading && <Loader2 className="h-4 w-4 animate-spin" />}
+                                                Ver Imagen de Guía
+                                            </>
+                                        )}
+                                    </Button>
+                                </div>
+                                
+                                {showImage && (
+                                    <div className="relative w-full bg-gray-100 dark:bg-gray-800 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700">
+                                        {imageLoading && (
+                                            <div className="absolute inset-0 flex items-center justify-center bg-white/80 dark:bg-gray-900/80 z-10">
+                                                <Loader2 className="h-8 w-8 animate-spin text-orange-600" />
+                                            </div>
+                                        )}
+                                        {imageError ? (
+                                            <div className="p-8 text-center text-muted-foreground">
+                                                <AlertTriangle className="h-8 w-8 mx-auto mb-2 text-red-500" />
+                                                <p className="mb-2">Error al cargar la imagen de la guía</p>
+                                                <Button
+                                                    onClick={() => {
+                                                        setImageError(false)
+                                                        setImageLoading(true)
+                                                        // Forzar recarga
+                                                        const img = document.querySelector(`img[alt="Guía ${shipment.guia}"]`) as HTMLImageElement
+                                                        if (img) {
+                                                            img.src = `/api/tracking/${encodeURIComponent(shipment.guia)}/image?t=${Date.now()}`
+                                                        }
+                                                    }}
+                                                    variant="outline"
+                                                    size="sm"
+                                                >
+                                                    Reintentar
+                                                </Button>
+                                            </div>
+                                        ) : (
+                                            <div className="relative w-full" style={{ minHeight: '400px' }}>
+                                                <img
+                                                    key={`guia-img-${shipment.guia}-${showImage}`}
+                                                    src={`/api/tracking/${encodeURIComponent(shipment.guia || '')}/image?t=${Date.now()}`}
+                                                    alt={`Guía ${shipment.guia || 'N/A'}`}
+                                                    className="w-full h-auto"
+                                                    onLoad={(e) => {
+                                                        console.log('Imagen cargada exitosamente:', shipment.guia)
+                                                        setImageLoading(false)
+                                                        setImageError(false)
+                                                    }}
+                                                    onError={(e) => {
+                                                        const target = e.target as HTMLImageElement
+                                                        console.error('Error cargando imagen de guía:', shipment.guia)
+                                                        console.error('URL intentada:', target.src)
+                                                        console.error('Error event:', e)
+                                                        setImageLoading(false)
+                                                        setImageError(true)
+                                                    }}
+                                                    style={{ 
+                                                        display: imageError ? 'none' : 'block',
+                                                        maxWidth: '100%',
+                                                        height: 'auto'
+                                                    }}
+                                                />
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                            <Separator className="my-8" />
+                        </>
+                    )}
 
                     <div className="space-y-6">
                         <h3 className="font-semibold text-lg flex items-center gap-2">

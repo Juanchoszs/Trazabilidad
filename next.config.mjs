@@ -1,11 +1,15 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  turbopack: {
+    root: 'C:/Users/Remesas-Despachos/Desktop/Trazabilidad',
+  },
   typescript: {
     ignoreBuildErrors: true,
   },
   images: {
     unoptimized: true,
   },
+
   // Expose environment variables for production
   env: {
     DATABASE_URL: process.env.DATABASE_URL,
