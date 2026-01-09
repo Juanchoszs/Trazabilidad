@@ -1,4 +1,5 @@
 import React from "react"
+import { formatToColombiaTime } from "@/lib/date-utils"
 import satori from "satori"
 import { Resvg } from "@resvg/resvg-js"
 import QRCode from "qrcode"
@@ -121,19 +122,7 @@ export async function generateVisualGuide(data: VisualGuideData): Promise<Buffer
         {data.history.slice(0, 5).map((item, idx) => (
           <div key={idx} style={{ display: "flex", fontSize: "11px" }}>
             <span style={{ width: "40%" }}>
-              {(() => {
-                const dateObj = new Date(item.created_at);
-                // Adjust to match user's requested logic (-5 hours)
-                dateObj.setHours(dateObj.getHours() - 5);
-                return dateObj.toLocaleString('es-CO', { 
-                  day: '2-digit', 
-                  month: '2-digit', 
-                  year: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit',
-                  hour12: true
-                });
-              })()}
+              {formatToColombiaTime(item.created_at)}
             </span>
             <span style={{ width: "35%", fontWeight: "bold" }}>{item.estado}</span>
             <span style={{ width: "25%", color: "#6b7280" }}>{item.novedad || "-"}</span>

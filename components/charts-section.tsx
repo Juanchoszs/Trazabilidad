@@ -78,15 +78,24 @@ export function ChartsSection({ shipments, stats }: ChartsSectionProps) {
     })
 
     const months = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
-    const currentYear = new Date().getFullYear()
+    const now = new Date()
+    
+    // Generate last 12 months
+    const result = []
+    for (let i = 11; i >= 0; i--) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+        const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`
+        const label = `${months[d.getMonth()]}`
+        
+        const stats = monthlyStats[monthKey]
+        const efectividad = stats && stats.total > 0 
+            ? Math.round((stats.delivered / stats.total) * 100) 
+            : 0
 
-    return months.map((month, index) => {
-      const monthKey = `${currentYear}-${String(index + 1).padStart(2, "0")}`
-      const stats = monthlyStats[monthKey]
-      const efectividad = stats ? Math.round((stats.delivered / stats.total) * 100) : 0
+        result.push({ month: label, efectividad })
+    }
 
-      return { month, efectividad }
-    })
+    return result
   }, [shipments])
 
   return (

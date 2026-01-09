@@ -167,7 +167,7 @@ export function DataTable({ shipments }: DataTableProps) {
             <div className="flex gap-1">
               {(transportadoraFilter === "Oriflame"
                 ? ["PENDIENTE", "ENTREGADO"]
-                : ["PENDIENTE", "EN TRANSITO", "EN REPARTO", "ENTREGADO", "DEVOLUCION"]
+                : ["PENDIENTE", "EN TRANSITO", "EN REPARTO", "ENTREGADO"]
               ).map((status) => (
                 <Button
                   key={status}

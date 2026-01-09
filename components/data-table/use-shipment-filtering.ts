@@ -22,7 +22,7 @@ export function useShipmentFiltering(shipments: any[], itemsPerPage = 20) {
             return ["Todos", "PENDIENTE", "ENTREGADO", "NOVEDAD 1", "NOVEDAD 2", "DEVOLUCION"]
         }
         if (transportadoraFilter === "Natura") {
-            return ["Todos", "EN TRANSITO", "EN REPARTO", "ENTREGADO", "DEVOLUCION", "NOVEDAD"]
+            return ["Todos", "EN TRANSITO", "EN REPARTO", "ENTREGADO", "NOVEDAD"]
         }
         if (transportadoraFilter === "Offcors") {
             return ["Todos", "PENDIENTE", "ENTREGADO", "NOVEDAD"]

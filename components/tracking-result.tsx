@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef, useEffect } from "react"
+import { formatToColombiaTime } from "@/lib/date-utils"
 import Image from "next/image"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -266,48 +267,7 @@ export function TrackingResult({ data }: TrackingResultProps) {
                                             )}
                                         </div>
                                         <time className="text-xs text-muted-foreground font-mono bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded self-start sm:self-auto">
-                                            {(() => {
-                                                const d = item.created_at;
-                                                let dateObj: Date;
-
-                                                try {
-                                                    if (d instanceof Date) {
-                                                        dateObj = d;
-                                                    } else {
-                                                        const s = String(d).trim();
-                                                        // Parse YYYY-MM-DD HH:mm:ss directly to local time components
-                                                        const match = s.match(/^(\d{4})[-/](\d{2})[-/](\d{2})(?:[T\s](\d{2}):(\d{2})(?::(\d{2}))?)?/);
-
-                                                        if (match) {
-                                                            const year = parseInt(match[1], 10);
-                                                            const month = parseInt(match[2], 10) - 1;
-                                                            const day = parseInt(match[3], 10);
-                                                            const hour = match[4] ? parseInt(match[4], 10) : 0;
-                                                            const minute = match[5] ? parseInt(match[5], 10) : 0;
-                                                            const second = match[6] ? parseInt(match[6], 10) : 0;
-                                                            // Adjust to Colombia (UTC-5): Subtract 10 hours to fix double offset
-                                                            dateObj = new Date(year, month, day, hour - 10, minute, second);
-                                                        } else {
-                                                            // Fallback
-                                                            dateObj = new Date(s);
-                                                            dateObj.setHours(dateObj.getHours() - 10);
-                                                        }
-                                                    }
-
-                                                    // Format: "jueves, 1 de enero de 2026, 3:56 p.m."
-                                                    return dateObj.toLocaleDateString('es-CO', {
-                                                        weekday: 'long',
-                                                        year: 'numeric',
-                                                        month: 'long',
-                                                        day: 'numeric',
-                                                        hour: 'numeric',
-                                                        minute: '2-digit',
-                                                        hour12: true
-                                                    });
-                                                } catch (e) {
-                                                    return String(d);
-                                                }
-                                            })()}
+                                            {formatToColombiaTime(item.created_at)}
                                         </time>
                                     </div>
                                 </div>
