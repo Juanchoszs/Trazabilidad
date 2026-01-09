@@ -1,8 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  turbopack: {
-    root: 'C:/Users/Remesas-Despachos/Desktop/Trazabilidad',
-  },
+  ...(process.env.NODE_ENV === 'development' ? {
+    turbopack: {
+      root: 'C:/Users/Remesas-Despachos/Desktop/Trazabilidad',
+    },
+  } : {}),
   serverExternalPackages: ["@resvg/resvg-js"],
   typescript: {
     ignoreBuildErrors: true,
